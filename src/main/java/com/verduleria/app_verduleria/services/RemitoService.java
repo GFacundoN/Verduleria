@@ -1,106 +1,83 @@
 package com.verduleria.app_verduleria.services;
 
+import com.verduleria.app_verduleria.dtos.RemitoDto;
 import com.verduleria.app_verduleria.entitys.Pedido;
-import com.verduleria.app_verduleria.entitys.Pedido.EstadoPedido;
 import com.verduleria.app_verduleria.entitys.Remito;
-import com.verduleria.app_verduleria.entitys.DetallePedido;
+import com.verduleria.app_verduleria.repositorys.PedidoRepository;
 import com.verduleria.app_verduleria.repositorys.RemitoRepository;
+import com.verduleria.app_verduleria.specifications.GenericSpecification;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.Optional;
+
 import java.util.List;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.time.LocalDateTime;
+import java.util.stream.Collectors;
 
 @Service
 public class RemitoService {
 
     @Autowired
     private RemitoRepository remitoRepository;
-
     @Autowired
-    private PedidoService pedidoService;
+    private PedidoRepository pedidoRepository;
 
-    @Transactional
-    public Remito generarRemito(Long pedidoId, Long numeroRemito) {
-
-        if (remitoRepository.findByPedidoId(pedidoId).isPresent()) {
-
-            throw new RuntimeException("El pedido ID " + pedidoId + " ya tiene un remito asociado.");
-        }
-
-        Pedido pedido = pedidoService.buscarPorId(pedidoId)
-                .orElseThrow(() -> new RuntimeException("Pedido con ID " + pedidoId + " no encontrado."));
-
-        if (pedido.getEstado() != EstadoPedido.EN_PREPARACION && pedido.getEstado() != EstadoPedido.ENVIADO) {
-
-            throw new IllegalStateException("El remito solo puede generarse para pedidos en estado EN_PREPARACION o ENVIADO.");
-        }
-
-        BigDecimal valorTotal = pedido.getDetalles().stream()
-                .map(DetallePedido::getSubtotal)
-                .reduce(BigDecimal.ZERO, BigDecimal::add)
-                .setScale(2, RoundingMode.HALF_UP);
-
-        Remito nuevoRemito = new Remito();
-        nuevoRemito.setPedido(pedido);
-        nuevoRemito.setFechaEmision(LocalDateTime.now());
-        nuevoRemito.setNumeroRemito(numeroRemito);
-        nuevoRemito.setValorTotal(valorTotal);
-
-        Remito remitoPersistido = remitoRepository.save(nuevoRemito);
-
-        if (pedido.getEstado() == EstadoPedido.EN_PREPARACION) {
-
-            pedidoService.cambiarEstado(pedidoId, EstadoPedido.ENVIADO);
-        }
-
-        return remitoPersistido;
+    @Transactional(readOnly = true)
+    public List<RemitoDto> findAll() {
+        return remitoRepository.findAll().stream().map(this::convertToDto).collect(Collectors.toList());
+    }
+    
+    @Transactional(readOnly = true)
+    public List<RemitoDto> findByCriteria(String search) {
+        return remitoRepository.findAll(new GenericSpecification<>(search)).stream().map(this::convertToDto).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
-    public Optional<Remito> buscarPorPedidoId(Long pedidoId) {
-
-        return remitoRepository.findByPedidoId(pedidoId);
+    public RemitoDto findById(Long id) {
+        return remitoRepository.findById(id).map(this::convertToDto).orElseThrow(() -> new RuntimeException("Remito no encontrado"));
     }
 
     @Transactional
-    public Remito confirmarEntrega(Long remitoId, String personaQueRecibe, String dniPersonaQueRecibe, String observaciones) {
-
-        Remito remito = remitoRepository.findById(remitoId)
-                .orElseThrow(() -> new RuntimeException("Remito con ID " + remitoId + " no encontrado."));
-
-        if (remito.getPedido().getEstado() != EstadoPedido.ENTREGADO) {
-
-            pedidoService.cambiarEstado(remito.getPedido().getId(), EstadoPedido.ENTREGADO);
-        }
-
-        return remitoRepository.save(remito);
-    }
-
-    @Transactional(readOnly = true)
-    public List<Remito> buscarTodos() {
-
-        return remitoRepository.findAll();
-    }
-
-    @Transactional(readOnly = true)
-    public Optional<Remito> buscarPorId(Long id) {
-
-        return remitoRepository.findById(id);
+    public RemitoDto save(RemitoDto remitoDto) {
+        Remito remito = convertToEntity(remitoDto);
+        return convertToDto(remitoRepository.save(remito));
     }
 
     @Transactional
-    public void eliminarPorId(Long id) {
+    public RemitoDto update(Long id, RemitoDto remitoDto) {
+        Remito remito = remitoRepository.findById(id).orElseThrow(() -> new RuntimeException("Remito no encontrado"));
+        remito.setNumeroRemito(remitoDto.getNumeroRemito());
+        remito.setValorTotal(remitoDto.getValorTotal());
+        remito.setFechaEmision(remitoDto.getFechaEmision());
+        // For simplicity, we are not updating the order here.
+        return convertToDto(remitoRepository.save(remito));
+    }
 
-        if (remitoRepository.existsById(id)) {
-
-            remitoRepository.deleteById(id);
-        } else {
-
+    @Transactional
+    public void deleteById(Long id) {
+        if (!remitoRepository.existsById(id)) {
             throw new RuntimeException("Remito con ID " + id + " no encontrado para eliminar.");
         }
+        remitoRepository.deleteById(id);
+    }
+
+    private RemitoDto convertToDto(Remito remito) {
+        return new RemitoDto(
+                remito.getId(),
+                remito.getNumeroRemito(),
+                remito.getPedido().getId(),
+                remito.getValorTotal(),
+                remito.getFechaEmision()
+        );
+    }
+
+    private Remito convertToEntity(RemitoDto dto) {
+        Remito remito = new Remito();
+        Pedido pedido = pedidoRepository.findById(dto.getPedidoId()).orElseThrow(() -> new RuntimeException("Pedido no encontrado"));
+        remito.setId(dto.getId());
+        remito.setNumeroRemito(dto.getNumeroRemito());
+        remito.setPedido(pedido);
+        remito.setValorTotal(dto.getValorTotal());
+        remito.setFechaEmision(dto.getFechaEmision());
+        return remito;
     }
 }
