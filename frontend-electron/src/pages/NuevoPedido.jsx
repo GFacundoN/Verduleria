@@ -4,16 +4,22 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { useToast } from '@/components/ui/toast';
+import { ArrowLeft, Plus, Trash2, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { pedidosService, clientesService, productosService } from '@/services/api.service';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, getLocalDateTime } from '@/lib/utils';
 
 export default function NuevoPedido() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [clientes, setClientes] = useState([]);
   const [productos, setProductos] = useState([]);
   const [selectedCliente, setSelectedCliente] = useState('');
+  const [searchCliente, setSearchCliente] = useState('');
+  const [searchProductos, setSearchProductos] = useState({});
+  const [showClienteDropdown, setShowClienteDropdown] = useState(false);
+  const [showProductoDropdown, setShowProductoDropdown] = useState({});
   const [detalles, setDetalles] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -47,7 +53,14 @@ export default function NuevoPedido() {
 
   const actualizarDetalle = (index, field, value) => {
     const nuevosDetalles = [...detalles];
-    nuevosDetalles[index][field] = value;
+    
+    // Si es cantidad, asegurarse que sea un entero positivo
+    if (field === 'cantidad') {
+      const cantidad = parseInt(value) || 1;
+      nuevosDetalles[index][field] = cantidad >= 1 ? cantidad : 1;
+    } else {
+      nuevosDetalles[index][field] = value;
+    }
 
     if (field === 'productoId') {
       const producto = productos.find(p => p.id === parseInt(value));
@@ -64,6 +77,38 @@ export default function NuevoPedido() {
     setDetalles(nuevosDetalles);
   };
 
+  // Filtrar clientes
+  const clientesFiltrados = clientes.filter(cliente => {
+    if (!searchCliente.trim()) return true;
+    const search = searchCliente.toLowerCase();
+    return (
+      cliente.razonSocial?.toLowerCase().includes(search) ||
+      cliente.cuitDni?.toLowerCase().includes(search)
+    );
+  });
+
+  // Filtrar productos
+  const getProductosFiltrados = (index) => {
+    const search = searchProductos[index] || '';
+    if (!search.trim()) return productos;
+    const searchLower = search.toLowerCase();
+    return productos.filter(p => p.nombre?.toLowerCase().includes(searchLower));
+  };
+
+  // Seleccionar cliente
+  const selectCliente = (cliente) => {
+    setSelectedCliente(cliente.id.toString());
+    setSearchCliente(cliente.razonSocial);
+    setShowClienteDropdown(false);
+  };
+
+  // Seleccionar producto
+  const selectProducto = (index, producto) => {
+    actualizarDetalle(index, 'productoId', producto.id.toString());
+    setSearchProductos({...searchProductos, [index]: producto.nombre});
+    setShowProductoDropdown({...showProductoDropdown, [index]: false});
+  };
+
   const eliminarDetalle = (index) => {
     setDetalles(detalles.filter((_, i) => i !== index));
   };
@@ -76,35 +121,51 @@ export default function NuevoPedido() {
     e.preventDefault();
 
     if (!selectedCliente) {
-      alert('Debe seleccionar un cliente');
+      toast({
+        title: 'Cliente requerido',
+        description: 'Debe seleccionar un cliente para continuar',
+        variant: 'error'
+      });
       return;
     }
 
     if (detalles.length === 0) {
-      alert('Debe agregar al menos un producto');
+      toast({
+        title: 'Productos requeridos',
+        description: 'Debe agregar al menos un producto al pedido',
+        variant: 'error'
+      });
       return;
     }
 
     try {
       const pedidoData = {
         clienteId: parseInt(selectedCliente),
-        fechaCreacion: new Date().toISOString(),
+        fechaCreacion: getLocalDateTime(),
         estado: 'PENDIENTE',
         montoTotal: calcularTotal(),
         detalles: detalles.map(d => ({
           productoId: parseInt(d.productoId),
-          cantidad: parseFloat(d.cantidad),
+          cantidad: parseInt(d.cantidad), // Ahora son enteros
           precioUnitario: parseFloat(d.precioUnitario),
           subtotal: parseFloat(d.subtotal)
         }))
       };
 
       await pedidosService.create(pedidoData);
-      alert('Pedido creado exitosamente');
+      toast({
+        title: '¡Pedido creado!',
+        description: `Pedido por ${formatCurrency(calcularTotal())} creado exitosamente`,
+        variant: 'success'
+      });
       navigate('/pedidos');
     } catch (error) {
       console.error('Error creating pedido:', error);
-      alert('Error al crear el pedido');
+      toast({
+        title: 'Error',
+        description: 'No se pudo crear el pedido. Intente nuevamente.',
+        variant: 'error'
+      });
     }
   };
 
@@ -116,12 +177,12 @@ export default function NuevoPedido() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" onClick={() => navigate('/pedidos')}>
+        <Button variant="ghost" onClick={() => navigate('/pedidos')} size="icon" className="shrink-0">
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Nuevo Pedido</h1>
-          <p className="text-gray-500 mt-1">Crear un nuevo pedido</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Nuevo Pedido</h1>
+          <p className="text-gray-500 mt-1 text-sm sm:text-base">Crear un nuevo pedido</p>
         </div>
       </div>
 
@@ -132,21 +193,35 @@ export default function NuevoPedido() {
             <CardTitle>Información del Cliente</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
+            <div className="space-y-2 relative">
               <Label htmlFor="cliente">Cliente</Label>
-              <Select
+              <Input
                 id="cliente"
-                value={selectedCliente}
-                onChange={(e) => setSelectedCliente(e.target.value)}
+                type="text"
+                value={searchCliente}
+                onChange={(e) => {
+                  setSearchCliente(e.target.value);
+                  setShowClienteDropdown(true);
+                }}
+                onFocus={() => setShowClienteDropdown(true)}
+                placeholder="Seleccione o escriba para buscar..."
                 required
-              >
-                <option value="">Seleccionar cliente...</option>
-                {clientes.map(cliente => (
-                  <option key={cliente.id} value={cliente.id}>
-                    {cliente.razonSocial} - {cliente.cuitDni}
-                  </option>
-                ))}
-              </Select>
+                autoComplete="off"
+              />
+              {showClienteDropdown && clientesFiltrados.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                  {clientesFiltrados.map(cliente => (
+                    <div
+                      key={cliente.id}
+                      onClick={() => selectCliente(cliente)}
+                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
+                    >
+                      <div className="font-medium">{cliente.razonSocial}</div>
+                      <div className="text-sm text-gray-500">{cliente.cuitDni}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -168,34 +243,55 @@ export default function NuevoPedido() {
             ) : (
               <div className="space-y-4">
                 {detalles.map((detalle, index) => (
-                  <div key={index} className="grid grid-cols-12 gap-4 items-end">
-                    <div className="col-span-5 space-y-2">
+                  <div key={index} className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end p-4 bg-gray-50 rounded-lg">
+                    <div className="sm:col-span-5 space-y-2 relative">
                       <Label>Producto</Label>
-                      <Select
-                        value={detalle.productoId}
-                        onChange={(e) => actualizarDetalle(index, 'productoId', e.target.value)}
+                      <Input
+                        type="text"
+                        value={searchProductos[index] || ''}
+                        onChange={(e) => {
+                          setSearchProductos({...searchProductos, [index]: e.target.value});
+                          setShowProductoDropdown({...showProductoDropdown, [index]: true});
+                        }}
+                        onFocus={() => setShowProductoDropdown({...showProductoDropdown, [index]: true})}
+                        placeholder="Seleccione o escriba para buscar..."
                         required
-                      >
-                        <option value="">Seleccionar...</option>
-                        {productos.map(producto => (
-                          <option key={producto.id} value={producto.id}>
-                            {producto.nombre} - {formatCurrency(producto.precioVenta)}
-                          </option>
-                        ))}
-                      </Select>
+                        autoComplete="off"
+                      />
+                      {showProductoDropdown[index] && getProductosFiltrados(index).length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-auto">
+                          {getProductosFiltrados(index).map(producto => (
+                            <div
+                              key={producto.id}
+                              onClick={() => selectProducto(index, producto)}
+                              className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
+                            >
+                              <div className="font-medium">{producto.nombre}</div>
+                              <div className="text-sm text-gray-500">{formatCurrency(producto.precioVenta)}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <div className="col-span-2 space-y-2">
+                    <div className="sm:col-span-2 space-y-2">
                       <Label>Cantidad</Label>
                       <Input
                         type="number"
-                        step="0.01"
-                        min="0.01"
+                        step="1"
+                        min="1"
                         value={detalle.cantidad}
                         onChange={(e) => actualizarDetalle(index, 'cantidad', e.target.value)}
+                        onKeyDown={(e) => {
+                          // Prevenir entrada de puntos decimales
+                          if (e.key === '.' || e.key === ',') {
+                            e.preventDefault();
+                          }
+                        }}
                         required
+                        className="font-semibold"
                       />
                     </div>
-                    <div className="col-span-2 space-y-2">
+                    <div className="sm:col-span-2 space-y-2">
                       <Label>Precio Unit.</Label>
                       <Input
                         type="number"
@@ -205,7 +301,7 @@ export default function NuevoPedido() {
                         className="bg-gray-50"
                       />
                     </div>
-                    <div className="col-span-2 space-y-2">
+                    <div className="sm:col-span-2 space-y-2">
                       <Label>Subtotal</Label>
                       <Input
                         type="text"
@@ -214,7 +310,7 @@ export default function NuevoPedido() {
                         className="bg-gray-50"
                       />
                     </div>
-                    <div className="col-span-1">
+                    <div className="sm:col-span-1 flex justify-end">
                       <Button
                         type="button"
                         variant="ghost"
@@ -244,11 +340,11 @@ export default function NuevoPedido() {
         </Card>
 
         {/* Actions */}
-        <div className="flex gap-2 justify-end">
-          <Button type="button" variant="outline" onClick={() => navigate('/pedidos')}>
+        <div className="flex flex-col sm:flex-row gap-2 justify-end">
+          <Button type="button" variant="outline" onClick={() => navigate('/pedidos')} className="w-full sm:w-auto">
             Cancelar
           </Button>
-          <Button type="submit">
+          <Button type="submit" className="w-full sm:w-auto">
             Crear Pedido
           </Button>
         </div>

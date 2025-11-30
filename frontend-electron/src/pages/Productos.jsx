@@ -18,6 +18,7 @@ export default function Productos() {
     unidadMedida: '',
     precioVenta: ''
   });
+  const [allProductos, setAllProductos] = useState([]);
 
   useEffect(() => {
     loadProductos();
@@ -25,7 +26,8 @@ export default function Productos() {
 
   const loadProductos = async () => {
     try {
-      const response = await productosService.getAll(search);
+      const response = await productosService.getAll();
+      setAllProductos(response.data);
       setProductos(response.data);
     } catch (error) {
       console.error('Error loading productos:', error);
@@ -33,6 +35,35 @@ export default function Productos() {
       setLoading(false);
     }
   };
+
+  // Filtrar productos en tiempo real
+  useEffect(() => {
+    console.log(' [PRODUCTOS] Filtrado - Búsqueda:', search);
+    console.log(' [PRODUCTOS] Total productos disponibles:', allProductos.length);
+    
+    if (!search.trim()) {
+      console.log(' [PRODUCTOS] Sin filtro - mostrando todos');
+      setProductos(allProductos);
+    } else {
+      console.log(' [PRODUCTOS] Aplicando filtro para:', search);
+      
+      const filtered = allProductos.filter(producto => {
+        const matchNombre = producto.nombre?.toLowerCase().includes(search.toLowerCase());
+        const matchUnidad = producto.unidadMedida?.toLowerCase().includes(search.toLowerCase());
+        
+        const match = matchNombre || matchUnidad;
+        
+        if (match) {
+          console.log(` [PRODUCTOS] Coincidencia: ${producto.nombre} (${producto.unidadMedida})`);
+        }
+        
+        return match;
+      });
+      
+      console.log(' [PRODUCTOS] Resultados filtrados:', filtered.length);
+      setProductos(filtered);
+    }
+  }, [search, allProductos]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -74,21 +105,19 @@ export default function Productos() {
     setShowForm(false);
   };
 
-  const handleSearch = () => {
-    setLoading(true);
-    loadProductos();
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Productos</h1>
-          <p className="text-gray-500 mt-1">Gestión de productos de la verdulería</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Productos</h1>
+          <p className="text-gray-500 mt-1 text-sm sm:text-base">Gestión de productos de la verdulería</p>
         </div>
-        <Button onClick={() => setShowForm(!showForm)}>
-          <Plus className="h-5 w-5 mr-2" />
+        <Button 
+          onClick={() => setShowForm(!showForm)}
+          className="w-full sm:w-auto"
+        >
+          <Plus className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
           Nuevo Producto
         </Button>
       </div>
@@ -101,7 +130,7 @@ export default function Productos() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="nombre">Nombre</Label>
                   <Input
@@ -133,11 +162,11 @@ export default function Productos() {
                   />
                 </div>
               </div>
-              <div className="flex gap-2">
-                <Button type="submit">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button type="submit" className="w-full sm:w-auto">
                   {editingId ? 'Actualizar' : 'Guardar'}
                 </Button>
-                <Button type="button" variant="outline" onClick={resetForm}>
+                <Button type="button" variant="outline" onClick={resetForm} className="w-full sm:w-auto">
                   Cancelar
                 </Button>
               </div>
@@ -149,16 +178,17 @@ export default function Productos() {
       {/* Search */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-3">
             <Input
-              placeholder="Buscar productos..."
+              placeholder="Buscar productos por nombre o unidad de medida..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              className="flex-1"
             />
-            <Button onClick={handleSearch}>
-              <Search className="h-5 w-5" />
-            </Button>
+            <div className="flex items-center justify-between sm:justify-center text-sm text-gray-500 px-3 py-2 bg-gray-50 rounded-md">
+              <Search className="h-4 w-4 mr-2" />
+              <span>{search ? `${productos.length} resultado(s)` : `${allProductos.length} producto(s)`}</span>
+            </div>
           </div>
         </CardContent>
       </Card>

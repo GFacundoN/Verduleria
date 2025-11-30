@@ -5,11 +5,12 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Search, QrCode, Printer, Eye } from 'lucide-react';
 import { remitosService, pedidosService, clientesService } from '@/services/api.service';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatCurrency, formatDate, getLocalDate, toLocalDateString } from '@/lib/utils';
 import QRCode from 'qrcode.react';
 
 export default function Remitos() {
   const [remitos, setRemitos] = useState([]);
+  const [allRemitos, setAllRemitos] = useState([]);
   const [pedidos, setPedidos] = useState({});
   const [clientes, setClientes] = useState({});
   const [loading, setLoading] = useState(true);
@@ -24,11 +25,12 @@ export default function Remitos() {
   const loadData = async () => {
     try {
       const [remitosRes, pedidosRes, clientesRes] = await Promise.all([
-        remitosService.getAll(search),
+        remitosService.getAll(),
         pedidosService.getAll(),
         clientesService.getAll()
       ]);
       
+      setAllRemitos(remitosRes.data);
       setRemitos(remitosRes.data);
       
       const pedidosMap = {};
@@ -49,10 +51,40 @@ export default function Remitos() {
     }
   };
 
-  const handleSearch = () => {
-    setLoading(true);
-    loadData();
-  };
+  // Filtrar remitos en tiempo real
+  useEffect(() => {
+    console.log(' [REMITOS] Filtrado - Búsqueda:', search);
+    console.log(' [REMITOS] Total remitos disponibles:', allRemitos.length);
+    
+    if (!search.trim()) {
+      console.log(' [REMITOS] Sin filtro - mostrando todos');
+      setRemitos(allRemitos);
+    } else {
+      console.log(' [REMITOS] Aplicando filtro para:', search);
+      
+      const filtered = allRemitos.filter(remito => {
+        const pedido = pedidos[remito.pedidoId];
+        const cliente = pedido ? clientes[pedido.clienteId] : null;
+        
+        const matchNumeroRemito = remito.numeroRemito?.toString().includes(search.toLowerCase());
+        const matchPedidoId = remito.pedidoId?.toString().includes(search.toLowerCase());
+        const matchCliente = cliente?.razonSocial?.toLowerCase().includes(search.toLowerCase());
+        const matchValor = remito.valorTotal?.toString().includes(search);
+        const matchFecha = new Date(remito.fechaEmision).toLocaleDateString('es-AR').includes(search);
+        
+        const match = matchNumeroRemito || matchPedidoId || matchCliente || matchValor || matchFecha;
+        
+        if (match) {
+          console.log(` [REMITOS] Coincidencia: Remito #${remito.numeroRemito} - ${cliente?.razonSocial || 'N/A'}`);
+        }
+        
+        return match;
+      });
+      
+      console.log(' [REMITOS] Resultados filtrados:', filtered.length);
+      setRemitos(filtered);
+    }
+  }, [search, allRemitos, pedidos, clientes]);
 
   const handleVerQR = (remito) => {
     setSelectedRemito(remito);
@@ -69,10 +101,33 @@ export default function Remitos() {
   };
 
   const calcularTotalDia = () => {
-    const today = new Date().toDateString();
-    return remitos
-      .filter(r => new Date(r.fechaEmision).toDateString() === today)
-      .reduce((sum, r) => sum + parseFloat(r.valorTotal), 0);
+    // Usar hora local de Argentina
+    const today = getLocalDate(); // YYYY-MM-DD format en hora local
+    
+    console.log(' [REMITOS] Fecha de hoy (hora local):', today);
+    console.log(' [REMITOS] Total remitos disponibles:', allRemitos.length);
+    
+    // Debug detallado de fechas de remitos
+    allRemitos.forEach(r => {
+      const fechaRemito = toLocalDateString(r.fechaEmision);
+      console.log(`[REMITOS] Remito #${r.numeroRemito}: ${r.fechaEmision} -> ${fechaRemito} (¿Es hoy? ${fechaRemito === today}) - Valor: $${r.valorTotal}`);
+    });
+    
+    const remitosHoy = allRemitos.filter(r => {
+      const fechaRemito = toLocalDateString(r.fechaEmision);
+      const esHoy = fechaRemito === today;
+      if (esHoy) {
+        console.log(` [REMITOS] Remito #${r.numeroRemito} ES de hoy: $${r.valorTotal}`);
+      }
+      return esHoy;
+    });
+    
+    console.log(' [REMITOS] Remitos de hoy encontrados:', remitosHoy.length);
+    
+    const total = remitosHoy.reduce((sum, r) => sum + parseFloat(r.valorTotal), 0);
+    console.log(' [REMITOS] Ventas calculadas para hoy:', total);
+    
+    return total;
   };
 
   return (
@@ -98,16 +153,17 @@ export default function Remitos() {
       {/* Search */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-3">
             <Input
-              placeholder="Buscar remitos..."
+              placeholder="Buscar por número de remito, pedido, cliente, valor o fecha..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              className="flex-1"
             />
-            <Button onClick={handleSearch}>
-              <Search className="h-5 w-5" />
-            </Button>
+            <div className="flex items-center justify-between sm:justify-center text-sm text-gray-500 px-3 py-2 bg-gray-50 rounded-md">
+              <Search className="h-4 w-4 mr-2" />
+              <span>{search ? `${remitos.length} resultado(s)` : `${allRemitos.length} remito(s)`}</span>
+            </div>
           </div>
         </CardContent>
       </Card>

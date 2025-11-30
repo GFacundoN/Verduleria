@@ -19,6 +19,7 @@ export default function Clientes() {
     email: '',
     cuitDni: ''
   });
+  const [allClientes, setAllClientes] = useState([]);
 
   useEffect(() => {
     loadClientes();
@@ -26,7 +27,8 @@ export default function Clientes() {
 
   const loadClientes = async () => {
     try {
-      const response = await clientesService.getAll(search);
+      const response = await clientesService.getAll();
+      setAllClientes(response.data);
       setClientes(response.data);
     } catch (error) {
       console.error('Error loading clientes:', error);
@@ -34,6 +36,38 @@ export default function Clientes() {
       setLoading(false);
     }
   };
+
+  // Filtrar clientes en tiempo real
+  useEffect(() => {
+    console.log(' [CLIENTES] Filtrado - Búsqueda:', search);
+    console.log(' [CLIENTES] Total clientes disponibles:', allClientes.length);
+    
+    if (!search.trim()) {
+      console.log(' [CLIENTES] Sin filtro - mostrando todos');
+      setClientes(allClientes);
+    } else {
+      console.log(' [CLIENTES] Aplicando filtro para:', search);
+      
+      const filtered = allClientes.filter(cliente => {
+        const matchNombre = cliente.razonSocial?.toLowerCase().includes(search.toLowerCase());
+        const matchCuit = cliente.cuitDni?.toLowerCase().includes(search.toLowerCase());
+        const matchTelefono = cliente.telefono?.toLowerCase().includes(search.toLowerCase());
+        const matchDireccion = cliente.direccion?.toLowerCase().includes(search.toLowerCase());
+        const matchEmail = cliente.email?.toLowerCase().includes(search.toLowerCase());
+        
+        const match = matchNombre || matchCuit || matchTelefono || matchDireccion || matchEmail;
+        
+        if (match) {
+          console.log(` [CLIENTES] Coincidencia: ${cliente.razonSocial} (${cliente.cuitDni})`);
+        }
+        
+        return match;
+      });
+      
+      console.log(' [CLIENTES] Resultados filtrados:', filtered.length);
+      setClientes(filtered);
+    }
+  }, [search, allClientes]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -81,15 +115,18 @@ export default function Clientes() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 lg:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Clientes</h1>
-          <p className="text-gray-500 mt-1">Gestión de clientes de la verdulería</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Clientes</h1>
+          <p className="text-gray-500 mt-1 text-sm sm:text-base">Gestión de clientes de la verdulería</p>
         </div>
-        <Button onClick={() => setShowForm(!showForm)}>
-          <Plus className="h-5 w-5 mr-2" />
+        <Button 
+          onClick={() => setShowForm(!showForm)}
+          className="w-full sm:w-auto"
+        >
+          <Plus className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
           Nuevo Cliente
         </Button>
       </div>
@@ -102,8 +139,8 @@ export default function Clientes() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2 sm:col-span-2 lg:col-span-1">
                   <Label htmlFor="razonSocial">Razón Social / Nombre</Label>
                   <Input
                     id="razonSocial"
@@ -138,7 +175,7 @@ export default function Clientes() {
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   />
                 </div>
-                <div className="space-y-2 md:col-span-2">
+                <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="direccion">Dirección</Label>
                   <Input
                     id="direccion"
@@ -148,11 +185,11 @@ export default function Clientes() {
                   />
                 </div>
               </div>
-              <div className="flex gap-2">
-                <Button type="submit">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button type="submit" className="w-full sm:w-auto">
                   {editingId ? 'Actualizar' : 'Guardar'}
                 </Button>
-                <Button type="button" variant="outline" onClick={resetForm}>
+                <Button type="button" variant="outline" onClick={resetForm} className="w-full sm:w-auto">
                   Cancelar
                 </Button>
               </div>
@@ -164,16 +201,17 @@ export default function Clientes() {
       {/* Search */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-3">
             <Input
-              placeholder="Buscar clientes..."
+              placeholder="Buscar clientes por nombre, CUIT, teléfono, dirección o email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              className="flex-1"
             />
-            <Button onClick={handleSearch}>
-              <Search className="h-5 w-5" />
-            </Button>
+            <div className="flex items-center justify-between sm:justify-center text-sm text-gray-500 px-3 py-2 bg-gray-50 rounded-md">
+              <Search className="h-4 w-4 mr-2" />
+              <span>{search ? `${clientes.length} resultado(s)` : `${allClientes.length} cliente(s)`}</span>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -202,10 +240,10 @@ export default function Clientes() {
                 <tbody>
                   {clientes.map((cliente) => (
                     <tr key={cliente.id} className="border-b hover:bg-gray-50">
-                      <td className="py-3 px-4">{cliente.razonSocial}</td>
+                      <td className="py-3 px-4 font-medium">{cliente.razonSocial}</td>
                       <td className="py-3 px-4">{cliente.cuitDni}</td>
                       <td className="py-3 px-4">{cliente.telefono || '-'}</td>
-                      <td className="py-3 px-4">{cliente.direccion}</td>
+                      <td className="py-3 px-4 max-w-xs truncate">{cliente.direccion}</td>
                       <td className="py-3 px-4 text-right">
                         <Button
                           variant="ghost"

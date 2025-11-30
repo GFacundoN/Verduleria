@@ -12,6 +12,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/remitos")
+@CrossOrigin(origins = {"http://localhost:5173", "http://localhost:3000"})
 public class RemitoController {
 
     @Autowired
