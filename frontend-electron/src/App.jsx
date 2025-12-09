@@ -1,5 +1,6 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 import { ToastProvider } from './components/ui/toast';
+import { DarkModeProvider } from './hooks/useDarkMode.jsx';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Productos from './pages/Productos';
@@ -12,22 +13,31 @@ import Estadisticas from './pages/Estadistica';
 
 function App() {
   return (
-    <ToastProvider>
-      <Router>
-        <Layout>
+    <DarkModeProvider>
+      <ToastProvider>
+        <Router>
           <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/productos" element={<Productos />} />
-            <Route path="/clientes" element={<Clientes />} />
-            <Route path="/pedidos" element={<Pedidos />} />
-            <Route path="/pedidos/nuevo" element={<NuevoPedido />} />
-            <Route path="/remitos" element={<Remitos />} />
-            <Route path="/estadisticas" element={<Estadisticas />} />
+            {/* Ruta sin Layout para confirmación (móvil) */}
             <Route path="/confirmar/:pedidoId" element={<ConfirmarEntrega />} />
+            
+            {/* Rutas con Layout (aplicación principal) */}
+            <Route path="/*" element={
+              <Layout>
+                <Routes>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/productos" element={<Productos />} />
+                  <Route path="/clientes" element={<Clientes />} />
+                  <Route path="/pedidos" element={<Pedidos />} />
+                  <Route path="/pedidos/nuevo" element={<NuevoPedido />} />
+                  <Route path="/remitos" element={<Remitos />} />
+                  <Route path="/estadisticas" element={<Estadisticas />} />
+                </Routes>
+              </Layout>
+            } />
           </Routes>
-        </Layout>
-      </Router>
-    </ToastProvider>
+        </Router>
+      </ToastProvider>
+    </DarkModeProvider>
   );
 }
 

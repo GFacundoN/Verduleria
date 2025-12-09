@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plus, Edit, Trash2, Search } from 'lucide-react';
 import { productosService } from '@/services/api.service';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 
 export default function Productos() {
   const [productos, setProductos] = useState([]);
@@ -82,7 +82,11 @@ export default function Productos() {
   };
 
   const handleEdit = (producto) => {
-    setFormData(producto);
+    setFormData({
+      nombre: producto.nombre,
+      unidadMedida: producto.unidadMedida,
+      precioVenta: producto.precioVenta
+    });
     setEditingId(producto.id);
     setShowForm(true);
   };
@@ -91,10 +95,12 @@ export default function Productos() {
     if (window.confirm('¿Está seguro de eliminar este producto?')) {
       try {
         await productosService.delete(id);
-        loadProductos();
+        await loadProductos();
+        alert('Producto eliminado correctamente');
       } catch (error) {
         console.error('Error deleting producto:', error);
-        alert('Error al eliminar el producto');
+        const errorMessage = error.response?.data?.message || error.message || 'Error desconocido al eliminar el producto';
+        alert(`Error al eliminar el producto: ${errorMessage}`);
       }
     }
   };
@@ -110,8 +116,8 @@ export default function Productos() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Productos</h1>
-          <p className="text-gray-500 mt-1 text-sm sm:text-base">Gestión de productos de la verdulería</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Productos</h1>
+          <p className="text-gray-500 dark:text-[#80868e] mt-1 text-sm sm:text-base">Gestión de productos de la verdulería</p>
         </div>
         <Button 
           onClick={() => setShowForm(!showForm)}
@@ -197,43 +203,54 @@ export default function Productos() {
       <Card>
         <CardContent className="pt-6">
           {loading ? (
-            <div className="text-center py-8">Cargando...</div>
+            <div className="text-center py-8 dark:text-gray-400">Cargando...</div>
           ) : productos.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
               No hay productos registrados
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="overflow-hidden rounded-xl">
+              <table className="w-full border-collapse">
                 <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4">Nombre</th>
-                    <th className="text-left py-3 px-4">Unidad de Medida</th>
-                    <th className="text-left py-3 px-4">Precio</th>
-                    <th className="text-right py-3 px-4">Acciones</th>
+                  <tr className="bg-gray-50 dark:bg-[#1a1a1a]/60 border-b-2 dark:border-[#2a2a2a]">
+                    <th className="text-left py-4 px-6 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-[#9ca3af] border-r dark:border-[#2a2a2a]">Nombre</th>
+                    <th className="text-left py-4 px-6 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-[#9ca3af] border-r dark:border-[#2a2a2a]">Unidad</th>
+                    <th className="text-left py-4 px-6 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-[#9ca3af] border-r dark:border-[#2a2a2a]">Precio</th>
+                    <th className="text-right py-4 px-6 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-[#9ca3af]">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {productos.map((producto) => (
-                    <tr key={producto.id} className="border-b hover:bg-gray-50">
-                      <td className="py-3 px-4">{producto.nombre}</td>
-                      <td className="py-3 px-4">{producto.unidadMedida}</td>
-                      <td className="py-3 px-4">{formatCurrency(producto.precioVenta)}</td>
-                      <td className="py-3 px-4 text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(producto)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(producto.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
+                  {productos.map((producto, index) => (
+                    <tr 
+                      key={producto.id} 
+                      className={cn(
+                        "border-b dark:border-[#2a2a2a] transition-colors duration-150",
+                        "hover:bg-gray-50 dark:hover:bg-[#1db954]/5",
+                        index % 2 === 0 ? "" : "bg-gray-50/50 dark:bg-[#1a1a1a]/30"
+                      )}
+                    >
+                      <td className="py-4 px-6 border-r dark:border-[#2a2a2a] font-semibold dark:text-white">{producto.nombre}</td>
+                      <td className="py-4 px-6 border-r dark:border-[#2a2a2a] dark:text-gray-300">{producto.unidadMedida}</td>
+                      <td className="py-4 px-6 border-r dark:border-[#2a2a2a] font-bold text-[#1db954]">{formatCurrency(producto.precioVenta)}</td>
+                      <td className="py-4 px-6 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(producto)}
+                            className="rounded-xl hover:bg-[#1db954]/10 hover:text-[#1db954] transition-all"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(producto.id)}
+                            className="rounded-xl hover:bg-red-500/10 hover:text-red-500 transition-all"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}

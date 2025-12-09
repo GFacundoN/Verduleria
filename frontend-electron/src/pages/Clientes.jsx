@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plus, Edit, Trash2, Search } from 'lucide-react';
 import { clientesService } from '@/services/api.service';
+import { cn } from '@/lib/utils';
 
 export default function Clientes() {
   const [clientes, setClientes] = useState([]);
@@ -86,7 +87,13 @@ export default function Clientes() {
   };
 
   const handleEdit = (cliente) => {
-    setFormData(cliente);
+    setFormData({
+      razonSocial: cliente.razonSocial,
+      telefono: cliente.telefono || '',
+      direccion: cliente.direccion,
+      email: cliente.email || '',
+      cuitDni: cliente.cuitDni
+    });
     setEditingId(cliente.id);
     setShowForm(true);
   };
@@ -95,10 +102,12 @@ export default function Clientes() {
     if (window.confirm('¿Está seguro de eliminar este cliente?')) {
       try {
         await clientesService.delete(id);
-        loadClientes();
+        await loadClientes();
+        alert('Cliente eliminado correctamente');
       } catch (error) {
         console.error('Error deleting cliente:', error);
-        alert('Error al eliminar el cliente');
+        const errorMessage = error.response?.data?.message || error.message || 'Error desconocido al eliminar el cliente';
+        alert(`Error al eliminar el cliente: ${errorMessage}`);
       }
     }
   };
@@ -119,8 +128,8 @@ export default function Clientes() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Clientes</h1>
-          <p className="text-gray-500 mt-1 text-sm sm:text-base">Gestión de clientes de la verdulería</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Clientes</h1>
+          <p className="text-gray-500 dark:text-[#80868e] mt-1 text-sm sm:text-base">Gestión de clientes de la verdulería</p>
         </div>
         <Button 
           onClick={() => setShowForm(!showForm)}
@@ -220,45 +229,56 @@ export default function Clientes() {
       <Card>
         <CardContent className="pt-6">
           {loading ? (
-            <div className="text-center py-8">Cargando...</div>
+            <div className="text-center py-8 dark:text-gray-400">Cargando...</div>
           ) : clientes.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
               No hay clientes registrados
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="overflow-hidden rounded-xl">
+              <table className="w-full border-collapse">
                 <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4">Razón Social</th>
-                    <th className="text-left py-3 px-4">CUIT/DNI</th>
-                    <th className="text-left py-3 px-4">Teléfono</th>
-                    <th className="text-left py-3 px-4">Dirección</th>
-                    <th className="text-right py-3 px-4">Acciones</th>
+                  <tr className="bg-gray-50 dark:bg-[#1a1a1a]/60 border-b-2 dark:border-[#2a2a2a]">
+                    <th className="text-left py-4 px-6 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-[#9ca3af] border-r dark:border-[#2a2a2a]">Razón Social</th>
+                    <th className="text-left py-4 px-6 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-[#9ca3af] border-r dark:border-[#2a2a2a]">CUIT/DNI</th>
+                    <th className="text-left py-4 px-6 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-[#9ca3af] border-r dark:border-[#2a2a2a]">Teléfono</th>
+                    <th className="text-left py-4 px-6 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-[#9ca3af] border-r dark:border-[#2a2a2a]">Dirección</th>
+                    <th className="text-right py-4 px-6 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-[#9ca3af]">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {clientes.map((cliente) => (
-                    <tr key={cliente.id} className="border-b hover:bg-gray-50">
-                      <td className="py-3 px-4 font-medium">{cliente.razonSocial}</td>
-                      <td className="py-3 px-4">{cliente.cuitDni}</td>
-                      <td className="py-3 px-4">{cliente.telefono || '-'}</td>
-                      <td className="py-3 px-4 max-w-xs truncate">{cliente.direccion}</td>
-                      <td className="py-3 px-4 text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(cliente)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDelete(cliente.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
+                  {clientes.map((cliente, index) => (
+                    <tr 
+                      key={cliente.id}
+                      className={cn(
+                        "border-b dark:border-[#2a2a2a] transition-colors duration-150",
+                        "hover:bg-gray-50 dark:hover:bg-[#1db954]/5",
+                        index % 2 === 0 ? "" : "bg-gray-50/50 dark:bg-[#1a1a1a]/30"
+                      )}
+                    >
+                      <td className="py-4 px-6 border-r dark:border-[#2a2a2a] font-semibold dark:text-white">{cliente.razonSocial}</td>
+                      <td className="py-4 px-6 border-r dark:border-[#2a2a2a] dark:text-gray-300">{cliente.cuitDni}</td>
+                      <td className="py-4 px-6 border-r dark:border-[#2a2a2a] dark:text-gray-300">{cliente.telefono || '-'}</td>
+                      <td className="py-4 px-6 border-r dark:border-[#2a2a2a] max-w-xs truncate dark:text-gray-300">{cliente.direccion}</td>
+                      <td className="py-4 px-6 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(cliente)}
+                            className="rounded-xl hover:bg-[#1db954]/10 hover:text-[#1db954] transition-all"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDelete(cliente.id)}
+                            className="rounded-xl hover:bg-red-500/10 hover:text-red-500 transition-all"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}

@@ -47,7 +47,7 @@
   },
   "build": {
     "appId": "com.verduleria.desktop",
-    "productName": "Verdulería System",
+    "productName": "La Jungla",
     "directories": {
       "buildResources": "build",
       "output": "dist-electron"

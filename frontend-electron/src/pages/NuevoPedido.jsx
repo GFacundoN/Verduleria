@@ -146,8 +146,8 @@ export default function NuevoPedido() {
         montoTotal: calcularTotal(),
         detalles: detalles.map(d => ({
           productoId: parseInt(d.productoId),
-          cantidad: parseInt(d.cantidad), // Ahora son enteros
-          precioUnitario: parseFloat(d.precioUnitario),
+          cantidad: parseInt(d.cantidad),
+          precio_venta: parseFloat(d.precioUnitario), // Cambiar a precio_venta según el DER
           subtotal: parseFloat(d.subtotal)
         }))
       };
@@ -170,7 +170,7 @@ export default function NuevoPedido() {
   };
 
   if (loading) {
-    return <div className="text-center py-8">Cargando...</div>;
+    return <div className="text-center py-8 text-gray-500 dark:text-gray-400">Cargando...</div>;
   }
 
   return (
@@ -181,18 +181,18 @@ export default function NuevoPedido() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Nuevo Pedido</h1>
-          <p className="text-gray-500 mt-1 text-sm sm:text-base">Crear un nuevo pedido</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Nuevo Pedido</h1>
+          <p className="text-gray-500 dark:text-[#80868e] mt-1 text-sm sm:text-base">Crear un nuevo pedido</p>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Cliente */}
-        <Card>
+        <Card className="relative z-50 overflow-visible">
           <CardHeader>
             <CardTitle>Información del Cliente</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="overflow-visible">
             <div className="space-y-2 relative">
               <Label htmlFor="cliente">Cliente</Label>
               <Input
@@ -209,15 +209,15 @@ export default function NuevoPedido() {
                 autoComplete="off"
               />
               {showClienteDropdown && clientesFiltrados.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                <div className="absolute z-[100] w-full mt-1 bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#2a2a2a] rounded-lg shadow-2xl max-h-60 overflow-auto">
                   {clientesFiltrados.map(cliente => (
                     <div
                       key={cliente.id}
                       onClick={() => selectCliente(cliente)}
-                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
+                      className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-[#1db954]/10 cursor-pointer border-b dark:border-[#2a2a2a] last:border-b-0 transition-colors"
                     >
-                      <div className="font-medium">{cliente.razonSocial}</div>
-                      <div className="text-sm text-gray-500">{cliente.cuitDni}</div>
+                      <div className="font-medium text-gray-900 dark:text-white">{cliente.razonSocial}</div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">{cliente.cuitDni}</div>
                     </div>
                   ))}
                 </div>
@@ -227,7 +227,7 @@ export default function NuevoPedido() {
         </Card>
 
         {/* Productos */}
-        <Card>
+        <Card className="relative z-40 overflow-visible">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Productos</CardTitle>
             <Button type="button" onClick={agregarDetalle} size="sm">
@@ -235,16 +235,16 @@ export default function NuevoPedido() {
               Agregar Producto
             </Button>
           </CardHeader>
-          <CardContent>
+          <CardContent className="overflow-visible">
             {detalles.length === 0 ? (
-              <p className="text-center py-8 text-gray-500">
+              <p className="text-center py-8 text-gray-500 dark:text-gray-400">
                 No hay productos agregados. Haga clic en &quot;Agregar Producto&quot;
               </p>
             ) : (
               <div className="space-y-4">
                 {detalles.map((detalle, index) => (
-                  <div key={index} className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end p-4 bg-gray-50 rounded-lg">
-                    <div className="sm:col-span-5 space-y-2 relative">
+                  <div key={index} className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end p-4 bg-gray-50 dark:bg-[#1a1a1a]/40 rounded-lg">
+                    <div className="sm:col-span-5 space-y-2 relative z-40">
                       <Label>Producto</Label>
                       <Input
                         type="text"
@@ -259,15 +259,15 @@ export default function NuevoPedido() {
                         autoComplete="off"
                       />
                       {showProductoDropdown[index] && getProductosFiltrados(index).length > 0 && (
-                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-auto">
+                        <div className="absolute z-[60] w-full mt-1 bg-white dark:bg-[#1a1a1a] border border-gray-300 dark:border-[#2a2a2a] rounded-lg shadow-2xl max-h-48 overflow-auto">
                           {getProductosFiltrados(index).map(producto => (
                             <div
                               key={producto.id}
                               onClick={() => selectProducto(index, producto)}
-                              className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
+                              className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-[#1db954]/10 cursor-pointer border-b dark:border-[#2a2a2a] last:border-b-0 transition-colors"
                             >
-                              <div className="font-medium">{producto.nombre}</div>
-                              <div className="text-sm text-gray-500">{formatCurrency(producto.precioVenta)}</div>
+                              <div className="font-medium text-gray-900 dark:text-white">{producto.nombre}</div>
+                              <div className="text-sm text-gray-500 dark:text-gray-400">{formatCurrency(producto.precioVenta)}</div>
                             </div>
                           ))}
                         </div>
@@ -298,7 +298,7 @@ export default function NuevoPedido() {
                         step="0.01"
                         value={detalle.precioUnitario}
                         readOnly
-                        className="bg-gray-50"
+                        className="bg-gray-50 dark:bg-[#1a1a1a]/60 dark:text-white"
                       />
                     </div>
                     <div className="sm:col-span-2 space-y-2">
@@ -307,7 +307,7 @@ export default function NuevoPedido() {
                         type="text"
                         value={formatCurrency(detalle.subtotal)}
                         readOnly
-                        className="bg-gray-50"
+                        className="bg-gray-50 dark:bg-[#1a1a1a]/60 dark:text-[#1db954] font-semibold"
                       />
                     </div>
                     <div className="sm:col-span-1 flex justify-end">
@@ -331,8 +331,8 @@ export default function NuevoPedido() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex justify-between items-center">
-              <span className="text-2xl font-bold">Total:</span>
-              <span className="text-3xl font-bold text-green-600">
+              <span className="text-2xl font-bold text-gray-900 dark:text-white">Total:</span>
+              <span className="text-3xl font-bold text-green-600 dark:text-[#1db954]">
                 {formatCurrency(calcularTotal())}
               </span>
             </div>

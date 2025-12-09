@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useParams, useNavigate } from 'react-router-dom';
 import { CheckCircle, XCircle, Package } from 'lucide-react';
-import { pedidosService, clientesService } from '@/services/api.service';
+import { pedidosService, clientesService, productosService } from '@/services/api.service';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
 export default function ConfirmarEntrega() {
@@ -11,6 +11,7 @@ export default function ConfirmarEntrega() {
   const navigate = useNavigate();
   const [pedido, setPedido] = useState(null);
   const [cliente, setCliente] = useState(null);
+  const [productos, setProductos] = useState({});
   const [loading, setLoading] = useState(true);
   const [confirmando, setConfirmando] = useState(false);
   const [confirmado, setConfirmado] = useState(false);
@@ -22,11 +23,22 @@ export default function ConfirmarEntrega() {
 
   const loadPedido = async () => {
     try {
-      const pedidoRes = await pedidosService.getById(pedidoId);
+      const [pedidoRes, productosRes] = await Promise.all([
+        pedidosService.getById(pedidoId),
+        productosService.getAll()
+      ]);
+      
       setPedido(pedidoRes.data);
 
       const clienteRes = await clientesService.getById(pedidoRes.data.clienteId);
       setCliente(clienteRes.data);
+
+      // Crear mapa de productos
+      const productosMap = {};
+      productosRes.data.forEach(p => {
+        productosMap[p.id] = p;
+      });
+      setProductos(productosMap);
     } catch (error) {
       console.error('Error loading pedido:', error);
       setError('No se pudo cargar la información del pedido');
@@ -155,12 +167,17 @@ export default function ConfirmarEntrega() {
               <div className="space-y-2">
                 <h4 className="font-semibold text-gray-900">Productos</h4>
                 <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-                  {pedido.detalles.map((detalle, index) => (
-                    <div key={index} className="flex justify-between text-sm">
-                      <span>{detalle.cantidad}x Producto #{detalle.productoId}</span>
-                      <span>{formatCurrency(detalle.subtotal)}</span>
-                    </div>
-                  ))}
+                  {pedido.detalles.map((detalle, index) => {
+                    const producto = productos[detalle.productoId];
+                    const precioUnitario = detalle.precioUnitario || detalle.precioVenta || producto?.precioVenta || 0;
+                    const subtotal = detalle.subtotal || (detalle.cantidad * precioUnitario);
+                    return (
+                      <div key={index} className="flex justify-between text-sm">
+                        <span>{detalle.cantidad}x {producto?.nombre || `Producto #${detalle.productoId}`}</span>
+                        <span>{formatCurrency(subtotal)}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

@@ -121,37 +121,30 @@ export default function Estadisticas() {
   const ticketPromedio = totalPedidos > 0 ? totalVentas / totalPedidos : 0;
   const clientesUnicos = new Set(pedidosFiltrados.map(p => p.clienteId)).size;
 
-  // Productos más vendidos - Versión simplificada
+  // Productos más vendidos - Usando datos reales
   const productosVendidos = {};
   
-  // Por ahora, como no tenemos detalles de productos en los pedidos,
-  // vamos a simular datos basados en los pedidos existentes
-  pedidosFiltrados.forEach((pedido, index) => {
-    // Simular productos aleatorios para demostración
-    const productosSimulados = [
-      'Tomates', 'Lechugas', 'Zanahorias', 'Papas', 'Cebollas', 
-      'Apio', 'Pimientos', 'Brócoli', 'Espinaca', 'Calabaza'
-    ];
-    
-    // Generar 1-3 productos por pedido
-    const numProductos = Math.floor(Math.random() * 3) + 1;
-    const montoBase = parseFloat(pedido.montoTotal) || 0;
-    
-    for (let i = 0; i < numProductos; i++) {
-      const productoNombre = productosSimulados[Math.floor(Math.random() * productosSimulados.length)];
-      const cantidad = Math.floor(Math.random() * 5) + 1; // 1-5 unidades
-      const ingresosPorProducto = montoBase / numProductos;
-      
-      if (!productosVendidos[productoNombre]) {
-        productosVendidos[productoNombre] = {
-          producto: { nombre: productoNombre },
-          cantidad: 0,
-          ingresos: 0
-        };
-      }
-      
-      productosVendidos[productoNombre].cantidad += cantidad;
-      productosVendidos[productoNombre].ingresos += ingresosPorProducto;
+  pedidosFiltrados.forEach((pedido) => {
+    if (pedido.detalles && Array.isArray(pedido.detalles)) {
+      pedido.detalles.forEach(detalle => {
+        const producto = productos.find(p => p.id === detalle.productoId);
+        const productoId = detalle.productoId;
+        
+        if (!productosVendidos[productoId]) {
+          productosVendidos[productoId] = {
+            producto: producto || { nombre: `Producto #${productoId}` },
+            cantidad: 0,
+            ingresos: 0
+          };
+        }
+        
+        // Calcular precio unitario con la misma lógica de fallback
+        const precioUnitario = detalle.precioUnitario || detalle.precioVenta || producto?.precioVenta || 0;
+        const subtotal = detalle.subtotal || (detalle.cantidad * precioUnitario);
+        
+        productosVendidos[productoId].cantidad += detalle.cantidad;
+        productosVendidos[productoId].ingresos += subtotal;
+      });
     }
   });
 
@@ -223,7 +216,7 @@ export default function Estadisticas() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Cargando estadísticas...</div>
+        <div className="text-gray-500 dark:text-gray-400">Cargando estadísticas...</div>
       </div>
     );
   }
@@ -233,29 +226,29 @@ export default function Estadisticas() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Estadísticas de Ventas</h1>
-          <p className="text-gray-500 mt-1">Análisis detallado de rendimiento</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Estadísticas de Ventas</h1>
+          <p className="text-gray-500 dark:text-[#80868e] mt-1">Análisis detallado de rendimiento</p>
         </div>
         <div className="flex items-center gap-2">
-          <BarChart3 className="h-6 w-6 text-gray-400" />
+          <BarChart3 className="h-6 w-6 text-gray-400 dark:text-gray-500" />
         </div>
       </div>
 
       {/* Filtros de Período */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 mb-8">
+      <div className="bg-white dark:bg-[#1a1a1a]/80 dark:backdrop-blur-xl rounded-2xl border border-gray-200 dark:border-[#2a2a2a] dark:shadow-2xl dark:shadow-black/40 p-6 mb-8">
         <div className="flex items-center gap-2 mb-4">
-          <Filter className="h-5 w-5 text-gray-500" />
-          <h2 className="text-lg font-semibold text-gray-900">Filtros de Período</h2>
+          <Filter className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Filtros de Período</h2>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           {/* Selector de Período */}
           <div className="lg:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Período</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Período</label>
             <select
               value={periodoSeleccionado}
               onChange={(e) => setPeriodoSeleccionado(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-[#2a2a2a] dark:bg-[#1a1a1a]/60 dark:text-white rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
             >
               {Object.entries(PERIODO_LABELS).map(([key, label]) => (
                 <option key={key} value={key}>{label}</option>
@@ -265,25 +258,25 @@ export default function Estadisticas() {
 
           {/* Fecha Inicio */}
           <div className="lg:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Fecha Inicio</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Fecha Inicio</label>
             <Input
               type="date"
               value={fechaInicio}
               onChange={(e) => setFechaInicio(e.target.value)}
               disabled={periodoSeleccionado !== PERIODOS.PERSONALIZADO}
-              className="bg-gray-50 border-gray-200"
+              className="bg-gray-50 dark:bg-[#1a1a1a]/60 border-gray-200 dark:border-[#2a2a2a] dark:text-white [color-scheme:dark]"
             />
           </div>
 
           {/* Fecha Fin */}
           <div className="lg:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Fecha Fin</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Fecha Fin</label>
             <Input
               type="date"
               value={fechaFin}
               onChange={(e) => setFechaFin(e.target.value)}
               disabled={periodoSeleccionado !== PERIODOS.PERSONALIZADO}
-              className="bg-gray-50 border-gray-200"
+              className="bg-gray-50 dark:bg-[#1a1a1a]/60 border-gray-200 dark:border-[#2a2a2a] dark:text-white [color-scheme:dark]"
             />
           </div>
         </div>
@@ -294,13 +287,13 @@ export default function Estadisticas() {
         {stats.map((stat, index) => {
           const IconComponent = stat.icon;
           return (
-            <div key={index} className={`${stat.bg} ${stat.border} border rounded-xl p-6 transition-all hover:shadow-md`}>
+            <div key={index} className={`${stat.bg} dark:bg-[#1a1a1a]/80 dark:backdrop-blur-xl ${stat.border} dark:border-[#2a2a2a] border rounded-2xl p-6 transition-all hover:shadow-md dark:shadow-lg dark:shadow-black/40`}>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">{stat.title}</p>
-                  <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">{stat.title}</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
                 </div>
-                <div className={`${stat.color} ${stat.bg} p-3 rounded-lg`}>
+                <div className={`${stat.color} p-3`}>
                   <IconComponent className="h-6 w-6" />
                 </div>
               </div>
@@ -311,25 +304,25 @@ export default function Estadisticas() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         {/* Productos Más Vendidos */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Productos Más Vendidos</h3>
+        <div className="bg-white dark:bg-[#1a1a1a]/80 dark:backdrop-blur-xl rounded-2xl border border-gray-200 dark:border-[#2a2a2a] dark:shadow-2xl dark:shadow-black/40 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Productos Más Vendidos</h3>
           <div className="space-y-4">
             {topProductos.length === 0 ? (
               <p className="text-gray-500 text-center py-8">No hay datos para mostrar</p>
             ) : (
               topProductos.map((item, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-[#1a1a1a]/40 rounded-lg">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-sm font-bold">
+                    <div className="w-8 h-8 bg-green-100 dark:bg-[#1db954]/20 text-green-600 dark:text-[#1db954] rounded-full flex items-center justify-center text-sm font-bold">
                       {index + 1}
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">{item.producto.nombre}</p>
-                      <p className="text-sm text-gray-500">{item.cantidad} unidades</p>
+                      <p className="font-medium text-gray-900 dark:text-white">{item.producto.nombre}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{item.cantidad} unidades</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-gray-900">{formatCurrency(item.ingresos)}</p>
+                    <p className="font-semibold text-gray-900 dark:text-[#1db954]">{formatCurrency(item.ingresos)}</p>
                   </div>
                 </div>
               ))
@@ -338,8 +331,8 @@ export default function Estadisticas() {
         </div>
 
         {/* Ventas por Día */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Ventas por Día</h3>
+        <div className="bg-white dark:bg-[#1a1a1a]/80 dark:backdrop-blur-xl rounded-2xl border border-gray-200 dark:border-[#2a2a2a] dark:shadow-2xl dark:shadow-black/40 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Ventas por Día</h3>
           <div className="space-y-3">
             {diasOrdenados.length === 0 ? (
               <p className="text-gray-500 text-center py-8">No hay datos para mostrar</p>
@@ -349,23 +342,27 @@ export default function Estadisticas() {
                 const maxVentas = Math.max(...Object.values(ventasPorDia).map(d => d.ventas));
                 const porcentaje = maxVentas > 0 ? (data.ventas / maxVentas) * 100 : 0;
                 
+                // Parsear fecha en hora local (YYYY-MM-DD)
+                const [year, month, day] = fecha.split('-').map(Number);
+                const fechaLocal = new Date(year, month - 1, day);
+                
                 return (
                   <div key={fecha} className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">
-                        {new Date(fecha).toLocaleDateString('es-AR', { 
+                      <span className="text-gray-600 dark:text-gray-400">
+                        {fechaLocal.toLocaleDateString('es-AR', { 
                           weekday: 'short', 
                           day: 'numeric', 
                           month: 'short' 
                         })}
                       </span>
-                      <span className="font-medium text-gray-900">
+                      <span className="font-medium text-gray-900 dark:text-white">
                         {formatCurrency(data.ventas)} ({data.pedidos} pedidos)
                       </span>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="w-full bg-gray-200 dark:bg-[#2a2a2a] rounded-full h-2">
                       <div 
-                        className="bg-green-500 h-2 rounded-full transition-all duration-300"
+                        className="bg-green-500 dark:bg-[#1db954] h-2 rounded-full transition-all duration-300"
                         style={{ width: `${porcentaje}%` }}
                       ></div>
                     </div>
@@ -379,10 +376,10 @@ export default function Estadisticas() {
 
       {/* Análisis por Horarios (solo para hoy) */}
       {periodoSeleccionado === PERIODOS.HOY && Object.keys(ventasPorHora).length > 0 && (
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-white dark:bg-[#1a1a1a]/80 dark:backdrop-blur-xl rounded-2xl border border-gray-200 dark:border-[#2a2a2a] dark:shadow-2xl dark:shadow-black/40 p-6">
           <div className="flex items-center gap-2 mb-4">
-            <Clock className="h-5 w-5 text-gray-500" />
-            <h3 className="text-lg font-semibold text-gray-900">Ventas por Hora (Hoy)</h3>
+            <Clock className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Ventas por Hora (Hoy)</h3>
           </div>
           <div className="grid grid-cols-6 md:grid-cols-12 gap-2">
             {Array.from({ length: 24 }, (_, hora) => {
@@ -394,16 +391,16 @@ export default function Estadisticas() {
                 <div key={hora} className="text-center">
                   <div 
                     className={`w-full h-12 rounded mb-1 flex items-center justify-center text-xs font-medium transition-all ${
-                      intensidad > 0.7 ? 'bg-green-500 text-white' :
-                      intensidad > 0.4 ? 'bg-green-300 text-green-800' :
-                      intensidad > 0.1 ? 'bg-green-100 text-green-600' :
-                      'bg-gray-100 text-gray-400'
+                      intensidad > 0.7 ? 'bg-green-500 dark:bg-[#1db954] text-white' :
+                      intensidad > 0.4 ? 'bg-green-300 dark:bg-[#1db954]/60 text-green-800 dark:text-white' :
+                      intensidad > 0.1 ? 'bg-green-100 dark:bg-[#1db954]/20 text-green-600 dark:text-[#1db954]' :
+                      'bg-gray-100 dark:bg-[#1a1a1a]/40 text-gray-400 dark:text-gray-500'
                     }`}
                     title={`${hora}:00 - ${data.pedidos} pedidos - ${formatCurrency(data.ventas)}`}
                   >
                     {data.pedidos}
                   </div>
-                  <div className="text-xs text-gray-500">{hora}h</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">{hora}h</div>
                 </div>
               );
             })}

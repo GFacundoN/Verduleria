@@ -102,7 +102,7 @@ export default function Dashboard() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Cargando...</div>
+        <div className="text-gray-500 dark:text-gray-400">Cargando...</div>
       </div>
     );
   }
@@ -112,13 +112,13 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-500 mt-1 text-sm sm:text-base">Bienvenido al sistema de gestión de pedidos</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
+          <p className="text-gray-500 dark:text-[#80868e] mt-1 text-sm sm:text-base">Bienvenido al sistema de gestión de pedidos</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
           <Button 
             onClick={() => {
-              console.log('🔄 Refresh manual solicitado');
+              console.log(' Refresh manual solicitado');
               loadStats();
             }} 
             variant="outline"
@@ -170,7 +170,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             <Button 
               variant="outline" 
-              className="h-16 sm:h-20 flex flex-col gap-1 sm:gap-2 hover:bg-gray-50 transition-colors"
+              className="h-16 sm:h-20 flex flex-col gap-1 sm:gap-2 hover:bg-gray-50 dark:hover:bg-[#1db954]/10 transition-colors"
               onClick={() => navigate('/pedidos/nuevo')}
             >
               <Plus className="h-5 w-5 sm:h-6 sm:w-6" />
@@ -178,7 +178,7 @@ export default function Dashboard() {
             </Button>
             <Button 
               variant="outline" 
-              className="h-16 sm:h-20 flex flex-col gap-1 sm:gap-2 hover:bg-gray-50 transition-colors"
+              className="h-16 sm:h-20 flex flex-col gap-1 sm:gap-2 hover:bg-gray-50 dark:hover:bg-[#1db954]/10 transition-colors"
               onClick={() => navigate('/productos')}
             >
               <Package className="h-5 w-5 sm:h-6 sm:w-6" />
@@ -186,7 +186,7 @@ export default function Dashboard() {
             </Button>
             <Button 
               variant="outline" 
-              className="h-16 sm:h-20 flex flex-col gap-1 sm:gap-2 hover:bg-gray-50 transition-colors sm:col-span-2 lg:col-span-1"
+              className="h-16 sm:h-20 flex flex-col gap-1 sm:gap-2 hover:bg-gray-50 dark:hover:bg-[#1db954]/10 transition-colors sm:col-span-2 lg:col-span-1"
               onClick={() => navigate('/remitos')}
             >
               <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6" />
