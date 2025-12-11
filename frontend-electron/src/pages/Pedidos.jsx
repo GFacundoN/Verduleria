@@ -6,6 +6,7 @@ import { Plus, Search, Eye, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } 
 import { useNavigate } from 'react-router-dom';
 import { pedidosService, clientesService, remitosService, productosService } from '@/services/api.service';
 import { formatCurrency, getLocalDateTime } from '@/lib/utils';
+import TruncatedCell from '@/components/TruncatedCell';
 
 const estadoColors = {
   PENDIENTE: 'bg-orange-100 text-orange-700 border-orange-200',
@@ -249,9 +250,11 @@ export default function Pedidos() {
                           <span className="font-semibold text-gray-900 dark:text-white">#{pedido.id}</span>
                         </td>
                         <td className="py-4 px-6 border-r dark:border-[#2a2a2a]">
-                          <span className="text-gray-900 dark:text-gray-300">
-                            {cliente?.razonSocial || 'N/A'}
-                          </span>
+                          <TruncatedCell 
+                            content={cliente?.razonSocial || 'N/A'}
+                            maxLength={25}
+                            className="text-gray-900 dark:text-gray-300"
+                          />
                         </td>
                         <td className="py-4 px-6 border-r dark:border-[#2a2a2a] text-gray-600 dark:text-gray-300">
                           {new Date(pedido.fechaCreacion).toLocaleTimeString('es-AR', {
@@ -300,15 +303,33 @@ export default function Pedidos() {
                               <div className="grid grid-cols-2 gap-4 text-sm">
                                 <div>
                                   <span className="font-medium text-gray-600 dark:text-[#9ca3af]">Cliente:</span>
-                                  <span className="ml-2 text-gray-900 dark:text-white">{cliente?.razonSocial || 'N/A'}</span>
+                                  <span className="ml-2 text-gray-900 dark:text-white">
+                                    <TruncatedCell 
+                                      content={cliente?.razonSocial || 'N/A'}
+                                      maxLength={30}
+                                      className="text-gray-900 dark:text-white"
+                                    />
+                                  </span>
                                 </div>
                                 <div>
                                   <span className="font-medium text-gray-600 dark:text-[#9ca3af]">CUIT/DNI:</span>
-                                  <span className="ml-2 text-gray-900 dark:text-white">{cliente?.cuitDni || 'N/A'}</span>
+                                  <span className="ml-2 text-gray-900 dark:text-white">
+                                    <TruncatedCell 
+                                      content={cliente?.cuitDni || 'N/A'}
+                                      maxLength={15}
+                                      className="text-gray-900 dark:text-white"
+                                    />
+                                  </span>
                                 </div>
                                 <div>
                                   <span className="font-medium text-gray-600 dark:text-[#9ca3af]">Dirección:</span>
-                                  <span className="ml-2 text-gray-900 dark:text-white">{cliente?.direccion || 'N/A'}</span>
+                                  <span className="ml-2 text-gray-900 dark:text-white">
+                                    <TruncatedCell 
+                                      content={cliente?.direccion || 'N/A'}
+                                      maxLength={40}
+                                      className="text-gray-900 dark:text-white"
+                                    />
+                                  </span>
                                 </div>
                                 <div>
                                   <span className="font-medium text-gray-600 dark:text-[#9ca3af]">Fecha:</span>
@@ -340,7 +361,13 @@ export default function Pedidos() {
                                           const subtotal = detalle.subtotal || (detalle.cantidad * precioUnitario);
                                           return (
                                             <tr key={idx} className="border-t border-gray-100 dark:border-[#2a2a2a]">
-                                              <td className="py-2 px-4 border-r dark:border-[#2a2a2a] dark:text-gray-300">{producto?.nombre || `Producto #${detalle.productoId}`}</td>
+                                              <td className="py-2 px-4 border-r dark:border-[#2a2a2a] dark:text-gray-300">
+                                                <TruncatedCell 
+                                                  content={`${producto?.nombre || `Producto #${detalle.productoId}`}${producto?.unidadMedida ? ` (${producto.unidadMedida})` : ''}`}
+                                                  maxLength={30}
+                                                  className="dark:text-gray-300"
+                                                />
+                                              </td>
                                               <td className="py-2 px-4 border-r dark:border-[#2a2a2a] text-center font-medium dark:text-gray-300">{detalle.cantidad}</td>
                                               <td className="py-2 px-4 border-r dark:border-[#2a2a2a] text-right dark:text-gray-300">{formatCurrency(precioUnitario)}</td>
                                               <td className="py-2 px-4 text-right font-semibold text-[#1db954]">{formatCurrency(subtotal)}</td>
@@ -358,7 +385,7 @@ export default function Pedidos() {
                                     <tfoot className="bg-gray-50 dark:bg-[#1a1a1a]/40 font-semibold">
                                       <tr>
                                         <td colSpan="3" className="py-3 px-4 text-right dark:text-white">Total:</td>
-                                        <td className="py-3 px-4 text-right text-green-600 dark:text-[#1db954] font-bold">{formatCurrency(pedido.montoTotal)}</td>
+                                        <td className="py-3 px-4 text-right font-semibold text-[#1db954]">{formatCurrency(pedido.montoTotal)}</td>
                                       </tr>
                                     </tfoot>
                                   </table>

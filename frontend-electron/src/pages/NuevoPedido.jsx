@@ -266,7 +266,9 @@ export default function NuevoPedido() {
                               onClick={() => selectProducto(index, producto)}
                               className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-[#1db954]/10 cursor-pointer border-b dark:border-[#2a2a2a] last:border-b-0 transition-colors"
                             >
-                              <div className="font-medium text-gray-900 dark:text-white">{producto.nombre}</div>
+                              <div className="font-medium text-gray-900 dark:text-white">
+                                {producto.nombre} <span className="text-sm font-normal text-gray-500 dark:text-gray-400">({producto.unidadMedida})</span>
+                              </div>
                               <div className="text-sm text-gray-500 dark:text-gray-400">{formatCurrency(producto.precioVenta)}</div>
                             </div>
                           ))}

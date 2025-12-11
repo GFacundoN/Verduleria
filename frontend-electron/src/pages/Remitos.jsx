@@ -3,10 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Search, QrCode, Printer, Eye, RefreshCw } from 'lucide-react';
+import { Search, QrCode, Printer, Eye, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { remitosService, pedidosService, clientesService, productosService } from '@/services/api.service';
 import { formatCurrency, formatDate, getLocalDate, toLocalDateString, cn } from '@/lib/utils';
 import QRCode from 'qrcode.react';
+import TruncatedCell from '@/components/TruncatedCell';
 
 export default function Remitos() {
   const [remitos, setRemitos] = useState([]);
@@ -19,6 +20,8 @@ export default function Remitos() {
   const [activeTab, setActiveTab] = useState('todos');
   const [selectedRemito, setSelectedRemito] = useState(null);
   const [showQR, setShowQR] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   useEffect(() => {
     loadData();
@@ -100,7 +103,13 @@ export default function Remitos() {
     
     console.log(' [REMITOS] Resultados filtrados:', filtered.length);
     setRemitos(filtered);
+    setCurrentPage(1); // Reset a página 1 cuando cambian los filtros
   }, [search, activeTab, allRemitos, pedidos, clientes]);
+
+  // Paginación
+  const totalPages = Math.ceil(remitos.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedRemitos = remitos.slice(startIndex, startIndex + itemsPerPage);
 
   const handleVerQR = (remito) => {
     setSelectedRemito(remito);
@@ -242,74 +251,117 @@ export default function Remitos() {
       <Card>
         <CardContent className="pt-6">
           {loading ? (
-            <div className="text-center py-8">Cargando...</div>
+            <div className="text-center py-8 dark:text-gray-400">Cargando...</div>
           ) : remitos.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
               No hay remitos generados
             </div>
           ) : (
-            <div className="overflow-hidden rounded-xl">
-              <table className="w-full border-collapse">
-                <thead className="bg-gray-50 dark:bg-[#1a1a1a]/60 border-b-2 dark:border-[#2a2a2a]">
-                  <tr>
-                    <th className="text-left py-4 px-6 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-[#9ca3af] border-r dark:border-[#2a2a2a]">Nº Remito</th>
-                    <th className="text-left py-4 px-6 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-[#9ca3af] border-r dark:border-[#2a2a2a]">Pedido</th>
-                    <th className="text-left py-4 px-6 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-[#9ca3af] border-r dark:border-[#2a2a2a]">Cliente</th>
-                    <th className="text-left py-4 px-6 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-[#9ca3af] border-r dark:border-[#2a2a2a]">Fecha Emisión</th>
-                    <th className="text-left py-4 px-6 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-[#9ca3af] border-r dark:border-[#2a2a2a]">Valor Total</th>
-                    <th className="text-left py-4 px-6 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-[#9ca3af] border-r dark:border-[#2a2a2a]">Estado</th>
-                    <th className="text-right py-4 px-6 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-[#9ca3af]">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {remitos.map((remito, index) => {
-                    const pedido = pedidos[remito.pedidoId];
-                    const cliente = pedido ? clientes[pedido.clienteId] : null;
+            <>
+              <div className="overflow-hidden rounded-xl">
+                <table className="w-full border-collapse">
+                  <thead className="bg-gray-50 dark:bg-[#1a1a1a]/60 border-b-2 dark:border-[#2a2a2a]">
+                    <tr>
+                      <th className="text-left py-4 px-6 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-[#9ca3af] border-r dark:border-[#2a2a2a]">Nº Remito</th>
+                      <th className="text-left py-4 px-6 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-[#9ca3af] border-r dark:border-[#2a2a2a]">Pedido</th>
+                      <th className="text-left py-4 px-6 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-[#9ca3af] border-r dark:border-[#2a2a2a]">Cliente</th>
+                      <th className="text-left py-4 px-6 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-[#9ca3af] border-r dark:border-[#2a2a2a]">Fecha Emisión</th>
+                      <th className="text-left py-4 px-6 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-[#9ca3af] border-r dark:border-[#2a2a2a]">Valor Total</th>
+                      <th className="text-left py-4 px-6 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-[#9ca3af] border-r dark:border-[#2a2a2a]">Estado</th>
+                      <th className="text-right py-4 px-6 text-xs font-bold uppercase tracking-wider text-gray-600 dark:text-[#9ca3af]">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedRemitos.map((remito, index) => {
+                      const pedido = pedidos[remito.pedidoId];
+                      const cliente = pedido ? clientes[pedido.clienteId] : null;
+                      
+                      return (
+                        <tr 
+                          key={remito.id} 
+                          className={`border-b dark:border-[#2a2a2a] transition-colors duration-150 hover:bg-gray-50 dark:hover:bg-[#1db954]/5 ${
+                            index % 2 === 0 ? "" : "bg-gray-50/50 dark:bg-[#1a1a1a]/30"
+                          }`}
+                        >
+                          <td className="py-4 px-6 border-r dark:border-[#2a2a2a] font-semibold dark:text-white">#{remito.numeroRemito}</td>
+                          <td className="py-4 px-6 border-r dark:border-[#2a2a2a] dark:text-gray-300">#{remito.pedidoId}</td>
+                          <td className="py-4 px-6 border-r dark:border-[#2a2a2a] dark:text-gray-300">
+                            <TruncatedCell 
+                              content={cliente?.razonSocial || 'N/A'}
+                              maxLength={25}
+                              className="dark:text-gray-300"
+                            />
+                          </td>
+                          <td className="py-4 px-6 border-r dark:border-[#2a2a2a] dark:text-gray-300">
+                            {new Date(remito.fechaEmision).toLocaleDateString('es-AR')}
+                          </td>
+                          <td className="py-4 px-6 border-r dark:border-[#2a2a2a] font-bold text-[#1db954]">{formatCurrency(remito.valorTotal)}</td>
+                          <td className="py-4 px-6 border-r dark:border-[#2a2a2a]">
+                            {pedido?.estado === 'ENTREGADO' ? (
+                              <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                                Entregado
+                              </span>
+                            ) : (
+                              <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                                Pendiente
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-4 px-6 text-right">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleVerQR(remito)}
+                              className="rounded-xl hover:bg-[#1db954]/10 hover:text-[#1db954] transition-all"
+                            >
+                              <QrCode className="h-4 w-4 mr-1" />
+                              Ver QR
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Paginación */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center py-4 border-t border-gray-200 dark:border-[#2a2a2a] mt-4">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
                     
-                    return (
-                      <tr 
-                        key={remito.id} 
-                        className={`border-b dark:border-[#2a2a2a] transition-colors duration-150 hover:bg-gray-50 dark:hover:bg-[#1db954]/5 ${
-                          index % 2 === 0 ? "" : "bg-gray-50/50 dark:bg-[#1a1a1a]/30"
-                        }`}
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                      <Button
+                        key={page}
+                        variant={currentPage === page ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setCurrentPage(page)}
+                        className={currentPage === page ? "bg-green-600 hover:bg-green-700" : ""}
                       >
-                        <td className="py-4 px-6 border-r dark:border-[#2a2a2a] font-semibold dark:text-white">#{remito.numeroRemito}</td>
-                        <td className="py-4 px-6 border-r dark:border-[#2a2a2a] dark:text-gray-300">#{remito.pedidoId}</td>
-                        <td className="py-4 px-6 border-r dark:border-[#2a2a2a] dark:text-gray-300">
-                          {cliente?.razonSocial || 'N/A'}
-                        </td>
-                        <td className="py-4 px-6 border-r dark:border-[#2a2a2a] dark:text-gray-300">
-                          {new Date(remito.fechaEmision).toLocaleDateString('es-AR')}
-                        </td>
-                        <td className="py-4 px-6 border-r dark:border-[#2a2a2a] font-bold text-[#1db954]">{formatCurrency(remito.valorTotal)}</td>
-                        <td className="py-4 px-6 border-r dark:border-[#2a2a2a]">
-                          {pedido?.estado === 'ENTREGADO' ? (
-                            <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                              Entregado
-                            </span>
-                          ) : (
-                            <span className="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
-                              Pendiente
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-4 px-6 text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleVerQR(remito)}
-                            className="rounded-xl hover:bg-[#1db954]/10 hover:text-[#1db954] transition-all"
-                          >
-                            <QrCode className="h-4 w-4 mr-1" />
-                            Ver QR
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        {page}
+                      </Button>
+                    ))}
+                    
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -347,10 +399,22 @@ export default function Remitos() {
                   <div className="mb-6">
                     <h3 className="font-bold text-lg mb-2 dark:text-white">Cliente</h3>
                     <div className="grid grid-cols-2 gap-2 text-sm dark:text-gray-300">
-                      <p><strong>Razón Social:</strong> {cliente?.razonSocial || 'N/A'}</p>
-                      <p><strong>CUIT/DNI:</strong> {cliente?.cuitDni || 'N/A'}</p>
-                      <p><strong>Dirección:</strong> {cliente?.direccion || 'N/A'}</p>
-                      <p><strong>Teléfono:</strong> {cliente?.telefono || 'N/A'}</p>
+                      <p>
+                        <strong>Razón Social:</strong>{' '}
+                        <TruncatedCell content={cliente?.razonSocial || 'N/A'} maxLength={30} className="dark:text-gray-300" />
+                      </p>
+                      <p>
+                        <strong>CUIT/DNI:</strong>{' '}
+                        <TruncatedCell content={cliente?.cuitDni || 'N/A'} maxLength={15} className="dark:text-gray-300" />
+                      </p>
+                      <p>
+                        <strong>Dirección:</strong>{' '}
+                        <TruncatedCell content={cliente?.direccion || 'N/A'} maxLength={40} className="dark:text-gray-300" />
+                      </p>
+                      <p>
+                        <strong>Teléfono:</strong>{' '}
+                        <TruncatedCell content={cliente?.telefono || 'N/A'} maxLength={15} className="dark:text-gray-300" />
+                      </p>
                     </div>
                   </div>
 
@@ -375,7 +439,11 @@ export default function Remitos() {
                             return (
                               <tr key={idx} className="dark:text-gray-300">
                                 <td className="border border-gray-300 dark:border-[#2a2a2a] px-4 py-2">
-                                  {producto?.nombre || `Producto #${detalle.productoId}`}
+                                  <TruncatedCell 
+                                    content={`${producto?.nombre || `Producto #${detalle.productoId}`}${producto?.unidadMedida ? ` (${producto.unidadMedida})` : ''}`}
+                                    maxLength={30}
+                                    className="dark:text-gray-300"
+                                  />
                                 </td>
                                 <td className="border border-gray-300 dark:border-[#2a2a2a] px-4 py-2 text-center">
                                   {detalle.cantidad}

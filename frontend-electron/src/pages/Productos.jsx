@@ -6,14 +6,22 @@ import { Label } from '@/components/ui/label';
 import { Plus, Edit, Trash2, Search } from 'lucide-react';
 import { productosService } from '@/services/api.service';
 import { formatCurrency, cn } from '@/lib/utils';
+import { useToast } from '@/components/ui/toast';
+import TruncatedCell from '@/components/TruncatedCell';
 
 export default function Productos() {
+  const { toast } = useToast();
   const [productos, setProductos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
+    nombre: '',
+    unidadMedida: '',
+    precioVenta: ''
+  });
+  const [formErrors, setFormErrors] = useState({
     nombre: '',
     unidadMedida: '',
     precioVenta: ''
@@ -65,19 +73,101 @@ export default function Productos() {
     }
   }, [search, allProductos]);
 
+  const validateField = (name, value) => {
+    let error = '';
+    
+    switch (name) {
+      case 'nombre':
+        if (!value.trim()) {
+          error = 'El nombre es requerido';
+        } else if (value.length > 20) {
+          error = 'Máximo 20 caracteres';
+        } else if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(value)) {
+          error = 'Solo se permiten letras';
+        }
+        break;
+      
+      case 'unidadMedida':
+        if (!value.trim()) {
+          error = 'La unidad de medida es requerida';
+        } else if (value.length > 10) {
+          error = 'Máximo 10 caracteres';
+        } else if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑ]+$/.test(value)) {
+          error = 'Solo se permiten letras (sin espacios)';
+        }
+        break;
+      
+      case 'precioVenta':
+        if (!value) {
+          error = 'El precio es requerido';
+        } else if (isNaN(value) || parseFloat(value) <= 0) {
+          error = 'Debe ser un número mayor a 0';
+        }
+        break;
+      
+      default:
+        break;
+    }
+    
+    return error;
+  };
+
+  const validateForm = () => {
+    const errors = {
+      nombre: validateField('nombre', formData.nombre),
+      unidadMedida: validateField('unidadMedida', formData.unidadMedida),
+      precioVenta: validateField('precioVenta', formData.precioVenta)
+    };
+    
+    setFormErrors(errors);
+    return !errors.nombre && !errors.unidadMedida && !errors.precioVenta;
+  };
+
+  const handleInputChange = (name, value) => {
+    setFormData({ ...formData, [name]: value });
+    // Validar en tiempo real
+    const error = validateField(name, value);
+    setFormErrors({ ...formErrors, [name]: error });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validar formulario antes de enviar
+    if (!validateForm()) {
+      toast({
+        title: '⚠️ Errores en el formulario',
+        description: 'Por favor corrige los errores antes de continuar.',
+        variant: 'warning'
+      });
+      return;
+    }
+    
     try {
       if (editingId) {
         await productosService.update(editingId, formData);
+        toast({
+          title: '✅ Producto actualizado',
+          description: 'El producto se actualizó correctamente.',
+          variant: 'success'
+        });
       } else {
         await productosService.create(formData);
+        toast({
+          title: '✅ Producto creado',
+          description: 'El producto se creó correctamente.',
+          variant: 'success'
+        });
       }
       resetForm();
       loadProductos();
     } catch (error) {
       console.error('Error saving producto:', error);
-      alert('Error al guardar el producto');
+      toast({
+        title: '❌ Error al guardar',
+        description: error.response?.data?.message || 'No se pudo guardar el producto.',
+        variant: 'error'
+      });
     }
   };
 
@@ -96,17 +186,44 @@ export default function Productos() {
       try {
         await productosService.delete(id);
         await loadProductos();
-        alert('Producto eliminado correctamente');
+        toast({
+          title: '✅ Producto eliminado',
+          description: 'El producto se eliminó correctamente.',
+          variant: 'success'
+        });
       } catch (error) {
         console.error('Error deleting producto:', error);
-        const errorMessage = error.response?.data?.message || error.message || 'Error desconocido al eliminar el producto';
-        alert(`Error al eliminar el producto: ${errorMessage}`);
+        
+        // Detectar si el error es por restricción de integridad (pedidos asociados)
+        const errorMsg = error.response?.data?.message || error.message || '';
+        const isConstraintError = errorMsg.toLowerCase().includes('constraint') || 
+                                  errorMsg.toLowerCase().includes('foreign key') ||
+                                  errorMsg.toLowerCase().includes('referenced') ||
+                                  errorMsg.toLowerCase().includes('asociado') ||
+                                  error.response?.status === 409 ||
+                                  error.response?.status === 500;
+        
+        if (isConstraintError) {
+          toast({
+            title: '⚠️ No se puede eliminar',
+            description: 'El producto tiene pedidos asociados. Para eliminarlo, primero debe eliminar o modificar los pedidos que lo utilizan.',
+            variant: 'warning',
+            duration: 6000
+          });
+        } else {
+          toast({
+            title: '❌ Error al eliminar',
+            description: error.response?.data?.message || error.message || 'Error desconocido al eliminar el producto',
+            variant: 'error'
+          });
+        }
       }
     }
   };
 
   const resetForm = () => {
     setFormData({ nombre: '', unidadMedida: '', precioVenta: '' });
+    setFormErrors({ nombre: '', unidadMedida: '', precioVenta: '' });
     setEditingId(null);
     setShowForm(false);
   };
@@ -138,34 +255,64 @@ export default function Productos() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="nombre">Nombre</Label>
+                  <Label htmlFor="nombre">
+                    Nombre <span className="text-red-500 dark:text-red-400">*</span>
+                  </Label>
                   <Input
                     id="nombre"
                     value={formData.nombre}
-                    onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                    onChange={(e) => handleInputChange('nombre', e.target.value)}
+                    maxLength={20}
+                    className={formErrors.nombre ? 'border-red-500 dark:border-red-500' : ''}
                     required
                   />
+                  {formErrors.nombre && (
+                    <p className="text-xs text-red-500 dark:text-red-400 mt-1">{formErrors.nombre}</p>
+                  )}
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {formData.nombre.length}/20 caracteres (solo letras)
+                  </p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="unidadMedida">Unidad de Medida</Label>
+                  <Label htmlFor="unidadMedida">
+                    Unidad de Medida <span className="text-red-500 dark:text-red-400">*</span>
+                  </Label>
                   <Input
                     id="unidadMedida"
-                    placeholder="kg, unidad, etc."
+                    placeholder="kg, unidad, bolsa..."
                     value={formData.unidadMedida}
-                    onChange={(e) => setFormData({ ...formData, unidadMedida: e.target.value })}
+                    onChange={(e) => handleInputChange('unidadMedida', e.target.value)}
+                    maxLength={10}
+                    className={formErrors.unidadMedida ? 'border-red-500 dark:border-red-500' : ''}
                     required
                   />
+                  {formErrors.unidadMedida && (
+                    <p className="text-xs text-red-500 dark:text-red-400 mt-1">{formErrors.unidadMedida}</p>
+                  )}
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {formData.unidadMedida.length}/10 caracteres (solo letras)
+                  </p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="precioVenta">Precio de Venta</Label>
+                  <Label htmlFor="precioVenta">
+                    Precio de Venta <span className="text-red-500 dark:text-red-400">*</span>
+                  </Label>
                   <Input
                     id="precioVenta"
                     type="number"
                     step="0.01"
+                    min="0.01"
                     value={formData.precioVenta}
-                    onChange={(e) => setFormData({ ...formData, precioVenta: e.target.value })}
+                    onChange={(e) => handleInputChange('precioVenta', e.target.value)}
+                    className={formErrors.precioVenta ? 'border-red-500 dark:border-red-500' : ''}
                     required
                   />
+                  {formErrors.precioVenta && (
+                    <p className="text-xs text-red-500 dark:text-red-400 mt-1">{formErrors.precioVenta}</p>
+                  )}
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Solo números positivos
+                  </p>
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row gap-2">
@@ -229,8 +376,20 @@ export default function Productos() {
                         index % 2 === 0 ? "" : "bg-gray-50/50 dark:bg-[#1a1a1a]/30"
                       )}
                     >
-                      <td className="py-4 px-6 border-r dark:border-[#2a2a2a] font-semibold dark:text-white">{producto.nombre}</td>
-                      <td className="py-4 px-6 border-r dark:border-[#2a2a2a] dark:text-gray-300">{producto.unidadMedida}</td>
+                      <td className="py-4 px-6 border-r dark:border-[#2a2a2a]">
+                        <TruncatedCell 
+                          content={producto.nombre}
+                          maxLength={20}
+                          className="font-semibold dark:text-white"
+                        />
+                      </td>
+                      <td className="py-4 px-6 border-r dark:border-[#2a2a2a]">
+                        <TruncatedCell 
+                          content={producto.unidadMedida}
+                          maxLength={10}
+                          className="dark:text-gray-300"
+                        />
+                      </td>
                       <td className="py-4 px-6 border-r dark:border-[#2a2a2a] font-bold text-[#1db954]">{formatCurrency(producto.precioVenta)}</td>
                       <td className="py-4 px-6 text-right">
                         <div className="flex items-center justify-end gap-2">

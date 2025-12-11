@@ -55,7 +55,7 @@ export default function Layout({ children }) {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Verdulería</h1>
-                <p className="text-[10px] text-gray-500 dark:text-[#6b7280] font-medium uppercase tracking-wider">Gestión Premium</p>
+                <p className="text-[10px] text-gray-500 dark:text-[#6b7280] font-medium uppercase tracking-wider">La Jungla</p>
               </div>
             </div>
             {/* Close button for mobile */}

@@ -6,14 +6,24 @@ import { Label } from '@/components/ui/label';
 import { Plus, Edit, Trash2, Search } from 'lucide-react';
 import { clientesService } from '@/services/api.service';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/components/ui/toast';
+import TruncatedCell from '@/components/TruncatedCell';
 
 export default function Clientes() {
+  const { toast } = useToast();
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
+    razonSocial: '',
+    telefono: '',
+    direccion: '',
+    email: '',
+    cuitDni: ''
+  });
+  const [formErrors, setFormErrors] = useState({
     razonSocial: '',
     telefono: '',
     direccion: '',
@@ -38,51 +48,120 @@ export default function Clientes() {
     }
   };
 
-  // Filtrar clientes en tiempo real
-  useEffect(() => {
-    console.log(' [CLIENTES] Filtrado - Búsqueda:', search);
-    console.log(' [CLIENTES] Total clientes disponibles:', allClientes.length);
+  const validateField = (name, value) => {
+    let error = '';
     
-    if (!search.trim()) {
-      console.log(' [CLIENTES] Sin filtro - mostrando todos');
-      setClientes(allClientes);
-    } else {
-      console.log(' [CLIENTES] Aplicando filtro para:', search);
-      
-      const filtered = allClientes.filter(cliente => {
-        const matchNombre = cliente.razonSocial?.toLowerCase().includes(search.toLowerCase());
-        const matchCuit = cliente.cuitDni?.toLowerCase().includes(search.toLowerCase());
-        const matchTelefono = cliente.telefono?.toLowerCase().includes(search.toLowerCase());
-        const matchDireccion = cliente.direccion?.toLowerCase().includes(search.toLowerCase());
-        const matchEmail = cliente.email?.toLowerCase().includes(search.toLowerCase());
-        
-        const match = matchNombre || matchCuit || matchTelefono || matchDireccion || matchEmail;
-        
-        if (match) {
-          console.log(` [CLIENTES] Coincidencia: ${cliente.razonSocial} (${cliente.cuitDni})`);
+    switch (name) {
+      case 'razonSocial':
+        if (!value.trim()) {
+          error = 'El nombre es requerido';
+        } else if (value.length > 25) {
+          error = 'Máximo 25 caracteres';
+        } else if (!/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(value)) {
+          error = 'Solo se permiten letras';
         }
-        
-        return match;
-      });
+        break;
       
-      console.log(' [CLIENTES] Resultados filtrados:', filtered.length);
-      setClientes(filtered);
+      case 'cuitDni':
+        if (!value.trim()) {
+          error = 'El CUIT/DNI es requerido';
+        } else if (value.length > 9) {
+          error = 'Máximo 9 caracteres';
+        } else if (!/^[0-9]+$/.test(value)) {
+          error = 'Solo se permiten números';
+        }
+        break;
+      
+      case 'telefono':
+        if (!value.trim()) {
+          error = 'El teléfono es requerido';
+        } else if (value.length > 13) {
+          error = 'Máximo 13 caracteres';
+        } else if (!/^[0-9]+$/.test(value)) {
+          error = 'Solo se permiten números';
+        }
+        break;
+      
+      case 'email':
+        // Email es opcional, solo validar formato si hay valor
+        if (value.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+          error = 'Email inválido';
+        }
+        break;
+      
+      case 'direccion':
+        if (!value.trim()) {
+          error = 'La dirección es requerida';
+        } else if (value.length > 60) {
+          error = 'Máximo 60 caracteres';
+        }
+        break;
+      
+      default:
+        break;
     }
-  }, [search, allClientes]);
+    
+    return error;
+  };
+
+  const validateForm = () => {
+    const errors = {
+      razonSocial: validateField('razonSocial', formData.razonSocial),
+      cuitDni: validateField('cuitDni', formData.cuitDni),
+      telefono: validateField('telefono', formData.telefono),
+      email: validateField('email', formData.email),
+      direccion: validateField('direccion', formData.direccion)
+    };
+    
+    setFormErrors(errors);
+    return !errors.razonSocial && !errors.cuitDni && !errors.telefono && !errors.email && !errors.direccion;
+  };
+
+  const handleInputChange = (name, value) => {
+    setFormData({ ...formData, [name]: value });
+    // Validar en tiempo real
+    const error = validateField(name, value);
+    setFormErrors({ ...formErrors, [name]: error });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validar formulario antes de enviar
+    if (!validateForm()) {
+      toast({
+        title: '⚠️ Errores en el formulario',
+        description: 'Por favor corrige los errores antes de continuar.',
+        variant: 'warning'
+      });
+      return;
+    }
+    
     try {
       if (editingId) {
         await clientesService.update(editingId, formData);
+        toast({
+          title: '✅ Cliente actualizado',
+          description: 'El cliente se actualizó correctamente.',
+          variant: 'success'
+        });
       } else {
         await clientesService.create(formData);
+        toast({
+          title: '✅ Cliente creado',
+          description: 'El cliente se creó correctamente.',
+          variant: 'success'
+        });
       }
       resetForm();
       loadClientes();
     } catch (error) {
       console.error('Error saving cliente:', error);
-      alert('Error al guardar el cliente');
+      toast({
+        title: '❌ Error al guardar',
+        description: error.response?.data?.message || 'No se pudo guardar el cliente.',
+        variant: 'error'
+      });
     }
   };
 
@@ -103,17 +182,44 @@ export default function Clientes() {
       try {
         await clientesService.delete(id);
         await loadClientes();
-        alert('Cliente eliminado correctamente');
+        toast({
+          title: '✅ Cliente eliminado',
+          description: 'El cliente se eliminó correctamente.',
+          variant: 'success'
+        });
       } catch (error) {
         console.error('Error deleting cliente:', error);
-        const errorMessage = error.response?.data?.message || error.message || 'Error desconocido al eliminar el cliente';
-        alert(`Error al eliminar el cliente: ${errorMessage}`);
+        
+        // Detectar si el error es por restricción de integridad (pedidos asociados)
+        const errorMsg = error.response?.data?.message || error.message || '';
+        const isConstraintError = errorMsg.toLowerCase().includes('constraint') || 
+                                  errorMsg.toLowerCase().includes('foreign key') ||
+                                  errorMsg.toLowerCase().includes('referenced') ||
+                                  errorMsg.toLowerCase().includes('asociado') ||
+                                  error.response?.status === 409 ||
+                                  error.response?.status === 500;
+        
+        if (isConstraintError) {
+          toast({
+            title: '⚠️ No se puede eliminar',
+            description: 'El cliente tiene pedidos asociados. Para eliminarlo, primero debe eliminar o modificar los pedidos que le pertenecen.',
+            variant: 'warning',
+            duration: 6000
+          });
+        } else {
+          toast({
+            title: '❌ Error al eliminar',
+            description: error.response?.data?.message || error.message || 'Error desconocido al eliminar el cliente',
+            variant: 'error'
+          });
+        }
       }
     }
   };
 
   const resetForm = () => {
     setFormData({ razonSocial: '', telefono: '', direccion: '', email: '', cuitDni: '' });
+    setFormErrors({ razonSocial: '', telefono: '', direccion: '', email: '', cuitDni: '' });
     setEditingId(null);
     setShowForm(false);
   };
@@ -150,30 +256,61 @@ export default function Clientes() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2 sm:col-span-2 lg:col-span-1">
-                  <Label htmlFor="razonSocial">Razón Social / Nombre</Label>
+                  <Label htmlFor="razonSocial">
+                    Razón Social / Nombre <span className="text-red-500 dark:text-red-400">*</span>
+                  </Label>
                   <Input
                     id="razonSocial"
                     value={formData.razonSocial}
-                    onChange={(e) => setFormData({ ...formData, razonSocial: e.target.value })}
+                    onChange={(e) => handleInputChange('razonSocial', e.target.value)}
+                    maxLength={25}
+                    className={formErrors.razonSocial ? 'border-red-500 dark:border-red-500' : ''}
                     required
                   />
+                  {formErrors.razonSocial && (
+                    <p className="text-xs text-red-500 dark:text-red-400 mt-1">{formErrors.razonSocial}</p>
+                  )}
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {formData.razonSocial.length}/25 caracteres (solo letras)
+                  </p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="cuitDni">CUIT / DNI</Label>
+                  <Label htmlFor="cuitDni">
+                    CUIT / DNI <span className="text-red-500 dark:text-red-400">*</span>
+                  </Label>
                   <Input
                     id="cuitDni"
                     value={formData.cuitDni}
-                    onChange={(e) => setFormData({ ...formData, cuitDni: e.target.value })}
+                    onChange={(e) => handleInputChange('cuitDni', e.target.value)}
+                    maxLength={9}
+                    className={formErrors.cuitDni ? 'border-red-500 dark:border-red-500' : ''}
                     required
                   />
+                  {formErrors.cuitDni && (
+                    <p className="text-xs text-red-500 dark:text-red-400 mt-1">{formErrors.cuitDni}</p>
+                  )}
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {formData.cuitDni.length}/9 caracteres (solo números)
+                  </p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="telefono">Teléfono</Label>
+                  <Label htmlFor="telefono">
+                    Teléfono <span className="text-red-500 dark:text-red-400">*</span>
+                  </Label>
                   <Input
                     id="telefono"
                     value={formData.telefono}
-                    onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
+                    onChange={(e) => handleInputChange('telefono', e.target.value)}
+                    maxLength={13}
+                    className={formErrors.telefono ? 'border-red-500 dark:border-red-500' : ''}
+                    required
                   />
+                  {formErrors.telefono && (
+                    <p className="text-xs text-red-500 dark:text-red-400 mt-1">{formErrors.telefono}</p>
+                  )}
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {formData.telefono.length}/13 caracteres (solo números)
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
@@ -181,17 +318,34 @@ export default function Clientes() {
                     id="email"
                     type="email"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onChange={(e) => handleInputChange('email', e.target.value)}
+                    className={formErrors.email ? 'border-red-500 dark:border-red-500' : ''}
                   />
+                  {formErrors.email && (
+                    <p className="text-xs text-red-500 dark:text-red-400 mt-1">{formErrors.email}</p>
+                  )}
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Opcional - Formato: ejemplo@mail.com
+                  </p>
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                  <Label htmlFor="direccion">Dirección</Label>
+                  <Label htmlFor="direccion">
+                    Dirección <span className="text-red-500 dark:text-red-400">*</span>
+                  </Label>
                   <Input
                     id="direccion"
                     value={formData.direccion}
-                    onChange={(e) => setFormData({ ...formData, direccion: e.target.value })}
+                    onChange={(e) => handleInputChange('direccion', e.target.value)}
+                    maxLength={60}
+                    className={formErrors.direccion ? 'border-red-500 dark:border-red-500' : ''}
                     required
                   />
+                  {formErrors.direccion && (
+                    <p className="text-xs text-red-500 dark:text-red-400 mt-1">{formErrors.direccion}</p>
+                  )}
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {formData.direccion.length}/60 caracteres
+                  </p>
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row gap-2">
@@ -256,10 +410,34 @@ export default function Clientes() {
                         index % 2 === 0 ? "" : "bg-gray-50/50 dark:bg-[#1a1a1a]/30"
                       )}
                     >
-                      <td className="py-4 px-6 border-r dark:border-[#2a2a2a] font-semibold dark:text-white">{cliente.razonSocial}</td>
-                      <td className="py-4 px-6 border-r dark:border-[#2a2a2a] dark:text-gray-300">{cliente.cuitDni}</td>
-                      <td className="py-4 px-6 border-r dark:border-[#2a2a2a] dark:text-gray-300">{cliente.telefono || '-'}</td>
-                      <td className="py-4 px-6 border-r dark:border-[#2a2a2a] max-w-xs truncate dark:text-gray-300">{cliente.direccion}</td>
+                      <td className="py-4 px-6 border-r dark:border-[#2a2a2a]">
+                        <TruncatedCell 
+                          content={cliente.razonSocial}
+                          maxLength={25}
+                          className="font-semibold dark:text-white"
+                        />
+                      </td>
+                      <td className="py-4 px-6 border-r dark:border-[#2a2a2a]">
+                        <TruncatedCell 
+                          content={cliente.cuitDni}
+                          maxLength={15}
+                          className="dark:text-gray-300"
+                        />
+                      </td>
+                      <td className="py-4 px-6 border-r dark:border-[#2a2a2a]">
+                        <TruncatedCell 
+                          content={cliente.telefono}
+                          maxLength={15}
+                          className="dark:text-gray-300"
+                        />
+                      </td>
+                      <td className="py-4 px-6 border-r dark:border-[#2a2a2a]">
+                        <TruncatedCell 
+                          content={cliente.direccion}
+                          maxLength={40}
+                          className="dark:text-gray-300"
+                        />
+                      </td>
                       <td className="py-4 px-6 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <Button
