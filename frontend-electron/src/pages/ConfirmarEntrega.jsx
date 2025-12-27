@@ -168,12 +168,27 @@ export default function ConfirmarEntrega() {
                 <h4 className="font-semibold text-gray-900">Productos</h4>
                 <div className="bg-gray-50 p-4 rounded-lg space-y-2">
                   {pedido.detalles.map((detalle, index) => {
-                    const producto = productos[detalle.productoId];
+                    // Verificar si es un producto personalizado
+                    const esPersonalizado = detalle.nombrePersonalizado || detalle.productoId === null;
+                    const producto = esPersonalizado ? null : productos[detalle.productoId];
+                    
                     const precioUnitario = detalle.precioUnitario || detalle.precioVenta || producto?.precioVenta || 0;
                     const subtotal = detalle.subtotal || (detalle.cantidad * precioUnitario);
+                    
+                    // Construir el nombre del producto
+                    let nombreProducto = '';
+                    if (esPersonalizado) {
+                      nombreProducto = detalle.nombrePersonalizado || 'Producto Personalizado';
+                      if (detalle.descripcionPersonalizada) {
+                        nombreProducto += ` (${detalle.descripcionPersonalizada})`;
+                      }
+                    } else {
+                      nombreProducto = producto?.nombre || `Producto #${detalle.productoId}`;
+                    }
+                    
                     return (
                       <div key={index} className="flex justify-between text-sm">
-                        <span>{detalle.cantidad}x {producto?.nombre || `Producto #${detalle.productoId}`}</span>
+                        <span>{detalle.cantidad}x {nombreProducto}</span>
                         <span>{formatCurrency(subtotal)}</span>
                       </div>
                     );

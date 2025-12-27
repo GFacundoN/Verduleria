@@ -79,3 +79,54 @@
 .slide-in-from-right {
   animation-name: slide-in-from-right;
 }
+
+/* Estilos de impresión para remito */
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+  }
+
+  /* ocultar todo */
+  body * {
+    visibility: hidden;
+  }
+
+  /* mostrar solo el remito */
+  #remito-print,
+  #remito-print * {
+    visibility: visible;
+  }
+
+  /* sacar el remito del layout centrado */
+  #remito-print {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: white;
+  }
+
+  /* neutralizar Tailwind space-y */
+  .space-y-4 > * + * {
+    margin-top: 0 !important;
+  }
+
+  /* posicionar remito arriba y centrado horizontalmente */
+  .fixed.inset-0.flex {
+    align-items: flex-start !important;
+    justify-content: center !important;
+  }
+
+  /* ocultar solo el overlay oscuro del dialog */
+  .fixed.inset-0.bg-black\/50 {
+    display: none !important;
+  }
+}

@@ -115,16 +115,17 @@ export default function Estadisticas() {
     return fechaPedido >= fechaInicio && fechaPedido <= fechaFin;
   });
 
-  // Calcular estadísticas principales
-  const totalVentas = pedidosFiltrados.reduce((sum, p) => sum + parseFloat(p.montoTotal), 0);
-  const totalPedidos = pedidosFiltrados.length;
+  // Calcular estadísticas principales (excluyendo pedidos cancelados)
+  const pedidosNoCancelados = pedidosFiltrados.filter(p => p.estado !== 'CANCELADO');
+  const totalVentas = pedidosNoCancelados.reduce((sum, p) => sum + parseFloat(p.montoTotal), 0);
+  const totalPedidos = pedidosNoCancelados.length;
   const ticketPromedio = totalPedidos > 0 ? totalVentas / totalPedidos : 0;
-  const clientesUnicos = new Set(pedidosFiltrados.map(p => p.clienteId)).size;
+  const clientesUnicos = new Set(pedidosNoCancelados.map(p => p.clienteId)).size;
 
-  // Productos más vendidos - Usando datos reales
+  // Productos más vendidos - Usando datos reales (excluyendo cancelados)
   const productosVendidos = {};
   
-  pedidosFiltrados.forEach((pedido) => {
+  pedidosNoCancelados.forEach((pedido) => {
     if (pedido.detalles && Array.isArray(pedido.detalles)) {
       pedido.detalles.forEach(detalle => {
         const producto = productos.find(p => p.id === detalle.productoId);
@@ -152,9 +153,9 @@ export default function Estadisticas() {
     .sort((a, b) => b.cantidad - a.cantidad)
     .slice(0, 10);
 
-  // Ventas por día
+  // Ventas por día (excluyendo cancelados)
   const ventasPorDia = {};
-  pedidosFiltrados.forEach(pedido => {
+  pedidosNoCancelados.forEach(pedido => {
     const fecha = toLocalDateString(pedido.fechaCreacion);
     if (!ventasPorDia[fecha]) {
       ventasPorDia[fecha] = { pedidos: 0, ventas: 0 };
@@ -165,10 +166,10 @@ export default function Estadisticas() {
 
   const diasOrdenados = Object.keys(ventasPorDia).sort();
 
-  // Ventas por hora (solo para hoy)
+  // Ventas por hora (solo para hoy, excluyendo cancelados)
   const ventasPorHora = {};
   if (periodoSeleccionado === PERIODOS.HOY) {
-    pedidosFiltrados.forEach(pedido => {
+    pedidosNoCancelados.forEach(pedido => {
       const hora = new Date(pedido.fechaCreacion).getHours();
       if (!ventasPorHora[hora]) {
         ventasPorHora[hora] = { pedidos: 0, ventas: 0 };

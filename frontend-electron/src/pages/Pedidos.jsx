@@ -2,27 +2,47 @@ import { useState, useEffect, Fragment } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/toast';
-import { Plus, Search, Eye, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Search, Eye, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, RefreshCw, Clock, Package, Truck, CheckCircle, XCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { pedidosService, clientesService, remitosService, productosService } from '@/services/api.service';
 import { formatCurrency, getLocalDateTime } from '@/lib/utils';
 import TruncatedCell from '@/components/TruncatedCell';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const estadoColors = {
-  PENDIENTE: 'bg-orange-100 text-orange-700 border-orange-200',
-  EN_PREPARACION: 'bg-blue-100 text-blue-700 border-blue-200',
-  ENVIADO: 'bg-green-100 text-green-700 border-green-200',
-  ENTREGADO: 'bg-green-100 text-green-700 border-green-200',
-  CANCELADO: 'bg-red-100 text-red-700 border-red-200'
+  PENDIENTE: 'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800',
+  EN_PREPARACION: 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800',
+  ENVIADO: 'bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800',
+  ENTREGADO: 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800',
+  CANCELADO: 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800'
 };
 
 const estadoLabels = {
   PENDIENTE: 'Pendiente',
   EN_PREPARACION: 'En Preparación',
-  ENVIADO: 'Entregado',
+  ENVIADO: 'Enviado',
   ENTREGADO: 'Entregado',
   CANCELADO: 'Cancelado'
 };
+
+const estadoIcons = {
+  PENDIENTE: Clock,
+  EN_PREPARACION: Package,
+  ENVIADO: Truck,
+  ENTREGADO: CheckCircle,
+  CANCELADO: XCircle
+};
+
+// Flujo de trabajo de estados
+const estadoWorkflow = {
+  PENDIENTE: ['EN_PREPARACION', 'CANCELADO'],
+  EN_PREPARACION: ['ENVIADO', 'CANCELADO'],
+  ENVIADO: ['ENTREGADO', 'CANCELADO'],
+  ENTREGADO: [],
+  CANCELADO: []
+};
+
+const ordenEstados = ['PENDIENTE', 'EN_PREPARACION', 'ENVIADO', 'ENTREGADO'];
 
 export default function Pedidos() {
   const navigate = useNavigate();
@@ -81,6 +101,112 @@ export default function Pedidos() {
     }));
   };
 
+  const handleChangeEstado = async (pedido, nuevoEstado) => {
+    // Validar transición de estado
+    const estadosPermitidos = estadoWorkflow[pedido.estado] || [];
+    if (!estadosPermitidos.includes(nuevoEstado) && nuevoEstado !== pedido.estado) {
+      toast({
+        title: 'Transición no permitida',
+        description: `No se puede cambiar de ${estadoLabels[pedido.estado]} a ${estadoLabels[nuevoEstado]}`,
+        variant: 'error'
+      });
+      return;
+    }
+
+    try {
+      // Si cambia a ENVIADO, generar remito automáticamente
+      if (nuevoEstado === 'ENVIADO' && !pedido.remitoGenerado) {
+        const remitoData = {
+          pedidoId: pedido.id,
+          numeroRemito: Date.now(),
+          valorTotal: pedido.montoTotal,
+          fechaEmision: getLocalDateTime()
+        };
+        
+        await remitosService.create(remitoData);
+        await pedidosService.update(pedido.id, { ...pedido, estado: nuevoEstado, remitoGenerado: true });
+        
+        toast({
+          title: 'Estado actualizado',
+          description: `Pedido marcado como ${estadoLabels[nuevoEstado]}. Remito #${remitoData.numeroRemito} generado automáticamente.`,
+          variant: 'success'
+        });
+      } 
+      // Si cambia a CANCELADO y tiene remito, eliminar el remito
+      else if (nuevoEstado === 'CANCELADO' && pedido.remitoGenerado) {
+        try {
+          // Buscar el remito asociado al pedido
+          const remitosResponse = await remitosService.getAll();
+          const remitoAsociado = remitosResponse.data.find(r => r.pedidoId === pedido.id);
+          
+          if (remitoAsociado) {
+            // Eliminar el remito
+            await remitosService.delete(remitoAsociado.id);
+            
+            // Actualizar el pedido con estado CANCELADO y remitoGenerado = false
+            await pedidosService.update(pedido.id, { 
+              ...pedido, 
+              estado: nuevoEstado, 
+              remitoGenerado: false 
+            });
+            
+            toast({
+              title: 'Pedido cancelado',
+              description: `Pedido #${pedido.id} cancelado. El remito #${remitoAsociado.numeroRemito} fue eliminado.`,
+              variant: 'warning'
+            });
+          } else {
+            // No se encontró remito, solo actualizar el estado
+            await pedidosService.update(pedido.id, { 
+              ...pedido, 
+              estado: nuevoEstado, 
+              remitoGenerado: false 
+            });
+            
+            toast({
+              title: 'Pedido cancelado',
+              description: `Pedido #${pedido.id} marcado como cancelado`,
+              variant: 'warning'
+            });
+          }
+        } catch (remitoError) {
+          console.error('Error eliminando remito:', remitoError);
+          // Aún así actualizar el estado del pedido
+          await pedidosService.update(pedido.id, { 
+            ...pedido, 
+            estado: nuevoEstado, 
+            remitoGenerado: false 
+          });
+          
+          toast({
+            title: 'Pedido cancelado',
+            description: 'Pedido cancelado, pero hubo un problema al eliminar el remito',
+            variant: 'warning'
+          });
+        }
+      } 
+      else {
+        // Actualizar solo el estado
+        await pedidosService.update(pedido.id, { ...pedido, estado: nuevoEstado });
+        
+        toast({
+          title: 'Estado actualizado',
+          description: `Pedido #${pedido.id} marcado como ${estadoLabels[nuevoEstado]}`,
+          variant: 'success'
+        });
+      }
+      
+      loadData();
+    } catch (error) {
+      console.error('Error actualizando estado:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo actualizar el estado del pedido',
+        variant: 'error'
+      });
+    }
+  };
+
   const handleGenerarRemito = async (pedido) => {
     try {
       const remitoData = {
@@ -113,10 +239,8 @@ export default function Pedidos() {
   const filteredPedidos = pedidos.filter(pedido => {
     // Filtro por tab
     let passesTabFilter = true;
-    if (activeTab === 'pendientes') {
-      passesTabFilter = ['PENDIENTE', 'EN_PREPARACION'].includes(pedido.estado);
-    } else if (activeTab === 'entregados') {
-      passesTabFilter = ['ENVIADO', 'ENTREGADO'].includes(pedido.estado);
+    if (activeTab !== 'todos') {
+      passesTabFilter = pedido.estado === activeTab;
     }
     
     // Filtro por búsqueda (ID, cliente, total)
@@ -124,7 +248,7 @@ export default function Pedidos() {
     if (search.trim()) {
       const searchLower = search.toLowerCase();
       const cliente = clientes[pedido.clienteId];
-      const clienteNombre = cliente ? `${cliente.nombre} ${cliente.apellido}`.toLowerCase() : '';
+      const clienteNombre = cliente?.razonSocial?.toLowerCase() || '';
       
       passesSearchFilter = 
         pedido.id.toString().includes(searchLower) ||
@@ -142,10 +266,19 @@ export default function Pedidos() {
   const paginatedPedidos = filteredPedidos.slice(startIndex, startIndex + itemsPerPage);
 
   const tabs = [
-    { id: 'todos', label: 'Todos', count: pedidos.length },
-    { id: 'pendientes', label: 'Pendientes', count: pedidos.filter(p => ['PENDIENTE', 'EN_PREPARACION'].includes(p.estado)).length },
-    { id: 'entregados', label: 'Entregados', count: pedidos.filter(p => ['ENVIADO', 'ENTREGADO'].includes(p.estado)).length }
+    { id: 'todos', label: 'Todos', count: pedidos.length, icon: null },
+    { id: 'PENDIENTE', label: 'Pendientes', count: pedidos.filter(p => p.estado === 'PENDIENTE').length, icon: Clock },
+    { id: 'EN_PREPARACION', label: 'En Preparación', count: pedidos.filter(p => p.estado === 'EN_PREPARACION').length, icon: Package },
+    { id: 'ENVIADO', label: 'Enviados', count: pedidos.filter(p => p.estado === 'ENVIADO').length, icon: Truck },
+    { id: 'ENTREGADO', label: 'Entregados', count: pedidos.filter(p => p.estado === 'ENTREGADO').length, icon: CheckCircle },
+    { id: 'CANCELADO', label: 'Cancelados', count: pedidos.filter(p => p.estado === 'CANCELADO').length, icon: XCircle }
   ];
+
+  const getProgressPercentage = (estado) => {
+    const index = ordenEstados.indexOf(estado);
+    if (index === -1) return 0;
+    return ((index + 1) / ordenEstados.length) * 100;
+  };
 
   if (loading) {
     return (
@@ -169,23 +302,27 @@ export default function Pedidos() {
       </div>
 
       {/* Tabs */}
-      <div className="flex space-x-1 mb-6">
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => {
-              setActiveTab(tab.id);
-              setCurrentPage(1);
-            }}
-            className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-              activeTab === tab.id
-                ? 'bg-green-600 text-white hover:bg-green-700'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
-            }`}
-          >
-            {tab.label} ({tab.count})
-          </button>
-        ))}
+      <div className="flex flex-wrap gap-2 mb-6">
+        {tabs.map(tab => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => {
+                setActiveTab(tab.id);
+                setCurrentPage(1);
+              }}
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex items-center gap-2 ${
+                activeTab === tab.id
+                  ? 'bg-green-600 text-white hover:bg-green-700 shadow-lg'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+              }`}
+            >
+              {Icon && <Icon className="h-4 w-4" />}
+              {tab.label} ({tab.count})
+            </button>
+          );
+        })}
       </div>
 
       {/* Search */}
@@ -253,7 +390,7 @@ export default function Pedidos() {
                           <TruncatedCell 
                             content={cliente?.razonSocial || 'N/A'}
                             maxLength={25}
-                            className="text-gray-900 dark:text-gray-300"
+                            className="text-gray-900 dark:text-white"
                           />
                         </td>
                         <td className="py-4 px-6 border-r dark:border-[#2a2a2a] text-gray-600 dark:text-gray-300">
@@ -268,35 +405,103 @@ export default function Pedidos() {
                           </span>
                         </td>
                         <td className="py-4 px-6 border-r dark:border-[#2a2a2a]">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium border ${
-                            estadoColors[pedido.estado] || 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-[#36393f] dark:text-[#dcddde] dark:border-[#202225]'
-                          }`}>
-                            {estadoLabels[pedido.estado] || pedido.estado}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <Select
+                              value={pedido.estado}
+                              onValueChange={(value) => handleChangeEstado(pedido, value)}
+                              disabled={pedido.estado === 'ENTREGADO' || pedido.estado === 'CANCELADO'}
+                            >
+                              <SelectTrigger className={`w-[160px] ${estadoColors[pedido.estado]}`}>
+                                <SelectValue>
+                                  <div className="flex items-center gap-2">
+                                    {(() => {
+                                      const Icon = estadoIcons[pedido.estado];
+                                      return Icon && <Icon className="h-3.5 w-3.5" />;
+                                    })()}
+                                    {estadoLabels[pedido.estado]}
+                                  </div>
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent>
+                                {estadoWorkflow[pedido.estado]?.map(estado => {
+                                  const Icon = estadoIcons[estado];
+                                  return (
+                                    <SelectItem key={estado} value={estado}>
+                                      <div className="flex items-center gap-2">
+                                        {Icon && <Icon className="h-4 w-4" />}
+                                        {estadoLabels[estado]}
+                                      </div>
+                                    </SelectItem>
+                                  );
+                                })}
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </td>
                         <td className="py-4 px-6">
-                          <div className="flex items-center gap-2">
-                            {!pedido.remitoGenerado && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleGenerarRemito(pedido)}
-                                className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-[#1db954] rounded-xl hover:bg-[#1db954]/10 transition-all"
-                              >
-                                <Eye className="h-4 w-4 mr-1" />
-                                Ver Remito
-                              </Button>
-                            )}
-                            {pedido.remitoGenerado && (
-                              <span className="text-green-600 dark:text-green-400 text-sm font-medium">Remito generado</span>
-                            )}
-                          </div>
+                          {pedido.remitoGenerado && (
+                            <span className="text-green-600 dark:text-green-400 text-sm font-medium flex items-center gap-1">
+                              <CheckCircle className="h-4 w-4" />
+                              Remito generado
+                            </span>
+                          )}
                         </td>
                       </tr>
                       {isExpanded && (
                         <tr className="bg-gray-50 dark:bg-[#1a1a1a]/30">
                           <td colSpan="7" className="py-4 px-8">
                             <div className="space-y-4">
+                              {/* Barra de progreso */}
+                              <div className="bg-white dark:bg-[#1a1a1a]/60 rounded-xl p-4 border border-gray-200 dark:border-[#2a2a2a]">
+                                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Estado del Pedido</h4>
+                                <div className="relative">
+                                  {/* Línea de progreso */}
+                                  <div className="absolute top-5 left-0 right-0 h-1 bg-gray-200 dark:bg-gray-700">
+                                    <div 
+                                      className="h-full bg-green-500 transition-all duration-500"
+                                      style={{ width: `${getProgressPercentage(pedido.estado)}%` }}
+                                    />
+                                  </div>
+                                  
+                                  {/* Steps */}
+                                  <div className="relative flex justify-between">
+                                    {ordenEstados.map((estado, index) => {
+                                      const Icon = estadoIcons[estado];
+                                      const isCompleted = ordenEstados.indexOf(pedido.estado) >= index;
+                                      const isCurrent = pedido.estado === estado;
+                                      
+                                      return (
+                                        <div key={estado} className="flex flex-col items-center">
+                                          <div className={`w-10 h-10 rounded-full flex items-center justify-center z-10 transition-all ${
+                                            isCurrent
+                                              ? 'bg-green-500 text-white ring-4 ring-green-200 dark:ring-green-900'
+                                              : isCompleted
+                                              ? 'bg-green-500 text-white'
+                                              : 'bg-gray-200 dark:bg-gray-700 text-gray-400'
+                                          }`}>
+                                            {Icon && <Icon className="h-5 w-5" />}
+                                          </div>
+                                          <span className={`text-xs mt-2 font-medium ${
+                                            isCurrent ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'
+                                          }`}>
+                                            {estadoLabels[estado]}
+                                          </span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                                
+                                {pedido.estado === 'CANCELADO' && (
+                                  <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                                    <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
+                                      <XCircle className="h-4 w-4" />
+                                      <span className="text-sm font-medium">Pedido Cancelado</span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
                               <h3 className="font-semibold text-gray-900 dark:text-white">Detalles del Pedido</h3>
                               
                               {/* Información del cliente */}
@@ -355,15 +560,30 @@ export default function Pedidos() {
                                     <tbody>
                                       {pedido.detalles && pedido.detalles.length > 0 ? (
                                         pedido.detalles.map((detalle, idx) => {
-                                          const producto = productos[detalle.productoId];
+                                          // Verificar si es un producto personalizado
+                                          const esPersonalizado = detalle.nombrePersonalizado || detalle.productoId === null;
+                                          const producto = esPersonalizado ? null : productos[detalle.productoId];
+                                          
                                           // Prioridad: precioUnitario > precioVenta > precio del producto > 0
                                           const precioUnitario = detalle.precioUnitario || detalle.precioVenta || producto?.precioVenta || 0;
                                           const subtotal = detalle.subtotal || (detalle.cantidad * precioUnitario);
+                                          
+                                          // Construir el nombre del producto
+                                          let nombreProducto = '';
+                                          if (esPersonalizado) {
+                                            nombreProducto = detalle.nombrePersonalizado || 'Producto Personalizado';
+                                            if (detalle.descripcionPersonalizada) {
+                                              nombreProducto += ` (${detalle.descripcionPersonalizada})`;
+                                            }
+                                          } else {
+                                            nombreProducto = `${producto?.nombre || `Producto #${detalle.productoId}`}${producto?.unidadMedida ? ` (${producto.unidadMedida})` : ''}`;
+                                          }
+                                          
                                           return (
                                             <tr key={idx} className="border-t border-gray-100 dark:border-[#2a2a2a]">
                                               <td className="py-2 px-4 border-r dark:border-[#2a2a2a] dark:text-gray-300">
                                                 <TruncatedCell 
-                                                  content={`${producto?.nombre || `Producto #${detalle.productoId}`}${producto?.unidadMedida ? ` (${producto.unidadMedida})` : ''}`}
+                                                  content={nombreProducto}
                                                   maxLength={30}
                                                   className="dark:text-gray-300"
                                                 />

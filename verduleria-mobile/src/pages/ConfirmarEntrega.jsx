@@ -199,9 +199,26 @@ export default function ConfirmarEntrega() {
                         const producto = productos[detalle.productoId];
                         const precioUnitario = detalle.precioUnitario || detalle.precioVenta || producto?.precioVenta || 0;
                         const subtotal = detalle.subtotal || (detalle.cantidad * precioUnitario);
+                        
+                        // Determinar el nombre del producto
+                        let nombreProducto;
+                        if (detalle.nombrePersonalizado) {
+                          // Producto personalizado
+                          nombreProducto = detalle.nombrePersonalizado;
+                          if (detalle.descripcionPersonalizada) {
+                            nombreProducto += ` (${detalle.descripcionPersonalizada})`;
+                          }
+                        } else if (producto?.nombre) {
+                          // Producto del catálogo
+                          nombreProducto = producto.nombre;
+                        } else {
+                          // Fallback
+                          nombreProducto = `Producto #${detalle.productoId || 'N/A'}`;
+                        }
+                        
                         return (
                           <tr key={index} className="border-b border-gray-200 last:border-0">
-                            <td className="px-3 py-2">{producto?.nombre || `Producto #${detalle.productoId}`}</td>
+                            <td className="px-3 py-2">{nombreProducto}</td>
                             <td className="px-3 py-2 text-center">{detalle.cantidad}</td>
                             <td className="px-3 py-2 text-right">{formatCurrency(precioUnitario)}</td>
                             <td className="px-3 py-2 text-right font-semibold">{formatCurrency(subtotal)}</td>

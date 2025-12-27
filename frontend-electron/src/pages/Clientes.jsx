@@ -30,7 +30,6 @@ export default function Clientes() {
     email: '',
     cuitDni: ''
   });
-  const [allClientes, setAllClientes] = useState([]);
 
   useEffect(() => {
     loadClientes();
@@ -39,7 +38,6 @@ export default function Clientes() {
   const loadClientes = async () => {
     try {
       const response = await clientesService.getAll();
-      setAllClientes(response.data);
       setClientes(response.data);
     } catch (error) {
       console.error('Error loading clientes:', error);
@@ -137,6 +135,21 @@ export default function Clientes() {
       return;
     }
     
+    // Verificar si ya existe un cliente con el mismo DNI/CUIT
+    const clienteExistente = clientes.find(
+      cliente => cliente.cuitDni === formData.cuitDni && cliente.id !== editingId
+    );
+    
+    if (clienteExistente) {
+      toast({
+        title: '⚠️ DNI/CUIT duplicado',
+        description: `Ya existe un cliente con el DNI/CUIT ${formData.cuitDni} (${clienteExistente.razonSocial})`,
+        variant: 'error'
+      });
+      setFormErrors({ ...formErrors, cuitDni: 'Este DNI/CUIT ya está registrado' });
+      return;
+    }
+    
     try {
       if (editingId) {
         await clientesService.update(editingId, formData);
@@ -224,10 +237,19 @@ export default function Clientes() {
     setShowForm(false);
   };
 
-  const handleSearch = () => {
-    setLoading(true);
-    loadClientes();
-  };
+  // Filtrar clientes en base a la búsqueda
+  const filteredClientes = clientes.filter(cliente => {
+    if (!search.trim()) return true;
+    
+    const searchLower = search.toLowerCase();
+    return (
+      cliente.razonSocial.toLowerCase().includes(searchLower) ||
+      cliente.cuitDni.toLowerCase().includes(searchLower) ||
+      (cliente.telefono || '').toLowerCase().includes(searchLower) ||
+      (cliente.direccion || '').toLowerCase().includes(searchLower) ||
+      (cliente.email || '').toLowerCase().includes(searchLower)
+    );
+  });
 
   return (
     <div className="space-y-4 lg:space-y-6">
@@ -371,9 +393,9 @@ export default function Clientes() {
               onChange={(e) => setSearch(e.target.value)}
               className="flex-1"
             />
-            <div className="flex items-center justify-between sm:justify-center text-sm text-gray-500 px-3 py-2 bg-gray-50 rounded-md">
+            <div className="flex items-center justify-between sm:justify-center text-sm text-gray-500 dark:text-gray-400 px-3 py-2 bg-gray-50 dark:bg-gray-800 rounded-md">
               <Search className="h-4 w-4 mr-2" />
-              <span>{search ? `${clientes.length} resultado(s)` : `${allClientes.length} cliente(s)`}</span>
+              <span>{search ? `${filteredClientes.length} resultado(s)` : `${clientes.length} cliente(s)`}</span>
             </div>
           </div>
         </CardContent>
@@ -384,9 +406,9 @@ export default function Clientes() {
         <CardContent className="pt-6">
           {loading ? (
             <div className="text-center py-8 dark:text-gray-400">Cargando...</div>
-          ) : clientes.length === 0 ? (
+          ) : filteredClientes.length === 0 ? (
             <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-              No hay clientes registrados
+              {search ? 'No se encontraron clientes con ese criterio' : 'No hay clientes registrados'}
             </div>
           ) : (
             <div className="overflow-hidden rounded-xl">
@@ -401,7 +423,7 @@ export default function Clientes() {
                   </tr>
                 </thead>
                 <tbody>
-                  {clientes.map((cliente, index) => (
+                  {filteredClientes.map((cliente, index) => (
                     <tr 
                       key={cliente.id}
                       className={cn(

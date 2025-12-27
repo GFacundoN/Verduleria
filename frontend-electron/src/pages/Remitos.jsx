@@ -8,6 +8,7 @@ import { remitosService, pedidosService, clientesService, productosService } fro
 import { formatCurrency, formatDate, getLocalDate, toLocalDateString, cn } from '@/lib/utils';
 import QRCode from 'qrcode.react';
 import TruncatedCell from '@/components/TruncatedCell';
+import laJunglaLogo from '/la-jungla-logo.png';
 
 export default function Remitos() {
   const [remitos, setRemitos] = useState([]);
@@ -379,114 +380,145 @@ export default function Remitos() {
             return (
               <div className="space-y-4 pb-4">
                 {/* Vista de impresión */}
-                <div id="remito-print" className="bg-white dark:bg-[#1a1a1a]/60 p-8 rounded-lg border border-gray-200 dark:border-[#2a2a2a]">
-                  {/* Header del remito */}
-                  <div className="border-b-2 border-gray-300 dark:border-[#2a2a2a] pb-4 mb-4">
-                    <h2 className="text-2xl font-bold text-center dark:text-white">REMITO</h2>
-                    <div className="flex justify-between mt-2 text-sm dark:text-gray-300">
-                      <div>
-                        <p><strong>Número:</strong> #{selectedRemito.numeroRemito}</p>
-                        <p><strong>Fecha:</strong> {new Date(selectedRemito.fechaEmision).toLocaleDateString('es-AR')}</p>
+                <div id="remito-print" className="bg-white text-black" style={{ fontSize: '11px', lineHeight: '1.3', padding: '0' }}>
+                  {/* Header: Logo izquierda + QR derecha */}
+                  <div className="flex justify-between items-start mb-1">
+                    {/* Logo */}
+                    <div className="flex-shrink-0">
+                      <img 
+                        src={laJunglaLogo} 
+                        alt="La Jungla" 
+                        className="h-16 w-auto"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'block';
+                        }}
+                      />
+                      <div style={{ display: 'none', border: '2px solid #3b82f6', padding: '8px', fontSize: '14px', fontWeight: 'bold', color: '#3b82f6' }}>
+                        LA JUNGLA
                       </div>
-                      <div>
-                        <p><strong>Pedido:</strong> #{selectedRemito.pedidoId}</p>
-                        <p><strong>Estado:</strong> {pedido?.estado || 'N/A'}</p>
-                      </div>
+                    </div>
+                    
+                    {/* QR Code */}
+                    <div className="flex-shrink-0">
+                      <QRCode 
+                        value={getQRUrl(selectedRemito.pedidoId)}
+                        size={80}
+                        level="H"
+                        includeMargin={false}
+                      />
                     </div>
                   </div>
 
-                  {/* Información del cliente */}
-                  <div className="mb-6">
-                    <h3 className="font-bold text-lg mb-2 dark:text-white">Cliente</h3>
-                    <div className="grid grid-cols-2 gap-2 text-sm dark:text-gray-300">
-                      <p>
-                        <strong>Razón Social:</strong>{' '}
-                        <TruncatedCell content={cliente?.razonSocial || 'N/A'} maxLength={30} className="dark:text-gray-300" />
-                      </p>
-                      <p>
-                        <strong>CUIT/DNI:</strong>{' '}
-                        <TruncatedCell content={cliente?.cuitDni || 'N/A'} maxLength={15} className="dark:text-gray-300" />
-                      </p>
-                      <p>
-                        <strong>Dirección:</strong>{' '}
-                        <TruncatedCell content={cliente?.direccion || 'N/A'} maxLength={40} className="dark:text-gray-300" />
-                      </p>
-                      <p>
-                        <strong>Teléfono:</strong>{' '}
-                        <TruncatedCell content={cliente?.telefono || 'N/A'} maxLength={15} className="dark:text-gray-300" />
-                      </p>
-                    </div>
+                  {/* Fecha y Número de Remito */}
+                  <div className="flex justify-between mb-1" style={{ fontSize: '12px' }}>
+                    <div><strong>Fecha:</strong> {new Date(selectedRemito.fechaEmision).toLocaleDateString('es-AR')}</div>
+                    <div><strong>REMITO NRO.:</strong> {selectedRemito.numeroRemito}</div>
                   </div>
 
-                  {/* Detalle de productos */}
-                  <div className="mb-6">
-                    <h3 className="font-bold text-lg mb-2 dark:text-white">Detalle de Productos</h3>
-                    <table className="w-full text-sm border border-gray-300 dark:border-[#2a2a2a]">
-                      <thead className="bg-gray-100 dark:bg-[#1a1a1a]/40">
-                        <tr>
-                          <th className="border border-gray-300 dark:border-[#2a2a2a] px-4 py-2 text-left dark:text-gray-300">Producto</th>
-                          <th className="border border-gray-300 dark:border-[#2a2a2a] px-4 py-2 text-center dark:text-gray-300">Cantidad</th>
-                          <th className="border border-gray-300 dark:border-[#2a2a2a] px-4 py-2 text-right dark:text-gray-300">Precio Unit.</th>
-                          <th className="border border-gray-300 dark:border-[#2a2a2a] px-4 py-2 text-right dark:text-gray-300">Subtotal</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {pedido?.detalles && pedido.detalles.length > 0 ? (
-                          pedido.detalles.map((detalle, idx) => {
-                            const producto = productos[detalle.productoId];
-                            const precioUnitario = detalle.precioUnitario || detalle.precioVenta || producto?.precioVenta || 0;
-                            const subtotal = detalle.subtotal || (detalle.cantidad * precioUnitario);
-                            return (
-                              <tr key={idx} className="dark:text-gray-300">
-                                <td className="border border-gray-300 dark:border-[#2a2a2a] px-4 py-2">
-                                  <TruncatedCell 
-                                    content={`${producto?.nombre || `Producto #${detalle.productoId}`}${producto?.unidadMedida ? ` (${producto.unidadMedida})` : ''}`}
-                                    maxLength={30}
-                                    className="dark:text-gray-300"
-                                  />
-                                </td>
-                                <td className="border border-gray-300 dark:border-[#2a2a2a] px-4 py-2 text-center">
-                                  {detalle.cantidad}
-                                </td>
-                                <td className="border border-gray-300 dark:border-[#2a2a2a] px-4 py-2 text-right">
-                                  {formatCurrency(precioUnitario)}
-                                </td>
-                                <td className="border border-gray-300 dark:border-[#2a2a2a] px-4 py-2 text-right font-semibold dark:text-[#1db954]">
-                                  {formatCurrency(subtotal)}
-                                </td>
-                              </tr>
-                            );
-                          })
-                        ) : (
-                          <tr>
-                            <td colSpan="4" className="border border-gray-300 dark:border-[#2a2a2a] px-4 py-4 text-center text-gray-500 dark:text-gray-400">
-                              No hay productos en este pedido
+                  {/* ID del Pedido */}
+                  <div className="mb-2" style={{ fontSize: '12px' }}>
+                    <strong>PEDIDO ID:</strong> #{selectedRemito.pedidoId}
+                  </div>
+
+                  {/* Datos del Cliente */}
+                  <div className="mb-2" style={{ fontSize: '11px', border: '1px solid #000', padding: '8px', backgroundColor: '#f3f4f6' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>DATOS DEL CLIENTE</div>
+                    <div><strong>Cliente:</strong> {cliente?.razonSocial || 'N/A'}</div>
+                    {cliente?.direccion && <div><strong>Dirección:</strong> {cliente.direccion}</div>}
+                    {cliente?.telefono && <div><strong>Teléfono:</strong> {cliente.telefono}</div>}
+                    {cliente?.email && <div><strong>Email:</strong> {cliente.email}</div>}
+                  </div>
+
+                  {/* Información de la Verdulería */}
+                  <div className="mb-1" style={{ fontSize: '11px' }}>
+                    <div><strong>VERDULERIA " LA JUNGLA "</strong></div>
+                    <div style={{ fontStyle: 'italic' }}>Tucumán y De la Reducción</div>
+                    <div style={{ color: '#dc2626', fontWeight: 'bold' }}>(00257) 490-669</div>
+                  </div>
+
+                  {/* Disclaimer */}
+                  <div className="text-center mb-2" style={{ fontSize: '11px', fontWeight: 'bold' }}>
+                    DOCUMENTO NO VALIDO COMO FACTURA
+                  </div>
+
+                  {/* Tabla de productos - Compacta */}
+                  <table className="w-full mb-2" style={{ fontSize: '10px', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: '#000', color: '#fff' }}>
+                        <th className="border border-black px-2 py-1 text-center" style={{ width: '12%' }}>CANTIDAD</th>
+                        <th className="border border-black px-2 py-1 text-left" style={{ width: '56%' }}>DESCRIPCION</th>
+                        <th className="border border-black px-2 py-1 text-right" style={{ width: '16%' }}>PRECIO</th>
+                        <th className="border border-black px-2 py-1 text-right" style={{ width: '16%' }}>TOTAL</th>
+                      </tr>
+                    </thead>
+                  <tbody>
+                    {pedido?.detalles && pedido.detalles.length > 0 ? (
+                      pedido.detalles.map((detalle, idx) => {
+                        // Verificar si es un producto personalizado
+                        const esPersonalizado = detalle.nombrePersonalizado || detalle.productoId === null;
+                        const producto = esPersonalizado ? null : productos[detalle.productoId];
+                        
+                        const precioUnitario = detalle.precioUnitario || detalle.precioVenta || producto?.precioVenta || 0;
+                        const subtotal = detalle.subtotal || (detalle.cantidad * precioUnitario);
+                        
+                        // Construir el nombre del producto
+                        let nombreProducto = '';
+                        if (esPersonalizado) {
+                          nombreProducto = detalle.nombrePersonalizado || 'Producto Personalizado';
+                          if (detalle.descripcionPersonalizada) {
+                            nombreProducto += ` (${detalle.descripcionPersonalizada})`;
+                          }
+                        } else {
+                          nombreProducto = `${producto?.nombre || `Producto #${detalle.productoId}`}${producto?.unidadMedida ? ` (${producto.unidadMedida})` : ''}`;
+                        }
+                        
+                        return (
+                          <tr key={idx}>
+                            <td className="border border-black px-2 py-0.5 text-center">
+                              {detalle.cantidad}
+                            </td>
+                            <td className="border border-black px-2 py-0.5">
+                              {nombreProducto}
+                            </td>
+                            <td className="border border-black px-2 py-0.5 text-right">
+                              {formatCurrency(precioUnitario)}
+                            </td>
+                            <td className="border border-black px-2 py-0.5 text-right">
+                              {formatCurrency(subtotal)}
                             </td>
                           </tr>
-                        )}
-                      </tbody>
-                      <tfoot className="bg-gray-50 dark:bg-[#1a1a1a]/40 font-bold">
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan="4" className="border border-black px-2 py-2 text-center">
+                          No hay productos en este pedido
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                  </table>
+
+                  {/* Totales */}
+                  <div className="flex justify-end">
+                    <table style={{ fontSize: '10px', width: '35%', borderCollapse: 'collapse' }}>
+                      <tbody>
                         <tr>
-                          <td colSpan="3" className="border border-gray-300 dark:border-[#2a2a2a] px-4 py-2 text-right dark:text-white">TOTAL:</td>
-                          <td className="border border-gray-300 dark:border-[#2a2a2a] px-4 py-2 text-right text-green-600 dark:text-[#1db954]">
-                            {formatCurrency(selectedRemito.valorTotal)}
-                          </td>
+                          <td className="border border-black px-2 py-1 text-right font-bold">SUBTOTAL</td>
+                          <td className="border border-black px-2 py-1 text-right">{formatCurrency(selectedRemito.valorTotal)}</td>
                         </tr>
-                      </tfoot>
+                        <tr>
+                          <td className="border border-black px-2 py-1 text-right font-bold">TOTAL A PAGAR</td>
+                          <td className="border border-black px-2 py-1 text-right font-bold">{formatCurrency(selectedRemito.valorTotal)}</td>
+                        </tr>
+                      </tbody>
                     </table>
                   </div>
 
-                  {/* QR Code */}
-                  <div className="flex flex-col items-center mt-6">
-                    <QRCode 
-                      value={getQRUrl(selectedRemito.pedidoId)}
-                      size={200}
-                      level="H"
-                      includeMargin
-                    />
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-2 text-center">
-                      Escanea para confirmar la entrega
-                    </p>
+                  {/* Footer */}
+                  <div className="mt-6 text-center" style={{ fontSize: '10px', fontWeight: 'bold' }}>
+                    Verduleria "La Jungla"
                   </div>
                 </div>
 

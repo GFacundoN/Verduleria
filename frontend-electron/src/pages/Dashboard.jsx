@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { Package, Users, ShoppingCart, DollarSign, TrendingUp, Plus, RefreshCw } from 'lucide-react';
+import { Package, Users, ShoppingCart, DollarSign, TrendingUp, Plus, RefreshCw, Clock, PackageIcon, Truck, CheckCircle, XCircle } from 'lucide-react';
 import { pedidosService, productosService, clientesService, remitosService } from '@/services/api.service';
 import { formatCurrency, getLocalDate, toLocalDateString } from '@/lib/utils';
 
@@ -12,7 +12,12 @@ export default function Dashboard() {
     totalProductos: 0,
     totalClientes: 0,
     pedidosHoy: 0,
-    ventasHoy: 0
+    ventasHoy: 0,
+    pedidosPendientes: 0,
+    pedidosEnPreparacion: 0,
+    pedidosEnviados: 0,
+    pedidosEntregados: 0,
+    pedidosCancelados: 0
   });
   const [loading, setLoading] = useState(true);
 
@@ -50,16 +55,30 @@ export default function Dashboard() {
       
       console.log('Pedidos de hoy encontrados:', pedidosHoy);
       
-      // Calcular ventas basándose en pedidos, no en remitos
-      const ventasHoy = pedidosHoy.reduce((sum, p) => sum + parseFloat(p.montoTotal || 0), 0);
+      // Calcular ventas basándose en pedidos, no en remitos (excluyendo cancelados)
+      const ventasHoy = pedidosHoy
+        .filter(p => p.estado !== 'CANCELADO')
+        .reduce((sum, p) => sum + parseFloat(p.montoTotal || 0), 0);
       
       console.log('Ventas calculadas para hoy:', ventasHoy);
+
+      // Contar pedidos por estado
+      const pedidosPendientes = pedidosRes.data.filter(p => p.estado === 'PENDIENTE').length;
+      const pedidosEnPreparacion = pedidosRes.data.filter(p => p.estado === 'EN_PREPARACION').length;
+      const pedidosEnviados = pedidosRes.data.filter(p => p.estado === 'ENVIADO').length;
+      const pedidosEntregados = pedidosRes.data.filter(p => p.estado === 'ENTREGADO').length;
+      const pedidosCancelados = pedidosRes.data.filter(p => p.estado === 'CANCELADO').length;
 
       setStats({
         totalProductos: productosRes.data.length,
         totalClientes: clientesRes.data.length,
         pedidosHoy: pedidosHoy.length,
-        ventasHoy: ventasHoy
+        ventasHoy: ventasHoy,
+        pedidosPendientes,
+        pedidosEnPreparacion,
+        pedidosEnviados,
+        pedidosEntregados,
+        pedidosCancelados
       });
     } catch (error) {
       console.error('Error loading stats:', error);
@@ -159,6 +178,72 @@ export default function Dashboard() {
           </Card>
         ))}
       </div>
+
+      {/* Estados de Pedidos */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg sm:text-xl">Estado de Pedidos</CardTitle>
+          <CardDescription className="text-sm">Distribución actual de pedidos por estado</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+            <div 
+              className="p-4 rounded-lg bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-200 dark:border-orange-800 hover:shadow-md transition-all cursor-pointer"
+              onClick={() => navigate('/pedidos')}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <Clock className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                <span className="text-2xl font-bold text-orange-600 dark:text-orange-400">{stats.pedidosPendientes}</span>
+              </div>
+              <p className="text-xs font-medium text-orange-700 dark:text-orange-300">Pendientes</p>
+            </div>
+            
+            <div 
+              className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 hover:shadow-md transition-all cursor-pointer"
+              onClick={() => navigate('/pedidos')}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <PackageIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.pedidosEnPreparacion}</span>
+              </div>
+              <p className="text-xs font-medium text-blue-700 dark:text-blue-300">En Preparación</p>
+            </div>
+            
+            <div 
+              className="p-4 rounded-lg bg-purple-50 dark:bg-purple-900/20 border-2 border-purple-200 dark:border-purple-800 hover:shadow-md transition-all cursor-pointer"
+              onClick={() => navigate('/pedidos')}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <Truck className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                <span className="text-2xl font-bold text-purple-600 dark:text-purple-400">{stats.pedidosEnviados}</span>
+              </div>
+              <p className="text-xs font-medium text-purple-700 dark:text-purple-300">Enviados</p>
+            </div>
+            
+            <div 
+              className="p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border-2 border-green-200 dark:border-green-800 hover:shadow-md transition-all cursor-pointer"
+              onClick={() => navigate('/pedidos')}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                <span className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.pedidosEntregados}</span>
+              </div>
+              <p className="text-xs font-medium text-green-700 dark:text-green-300">Entregados</p>
+            </div>
+            
+            <div 
+              className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800 hover:shadow-md transition-all cursor-pointer"
+              onClick={() => navigate('/pedidos')}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <XCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                <span className="text-2xl font-bold text-red-600 dark:text-red-400">{stats.pedidosCancelados}</span>
+              </div>
+              <p className="text-xs font-medium text-red-700 dark:text-red-300">Cancelados</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Quick Actions */}
       <Card>
